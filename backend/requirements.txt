@@ -102,12 +102,3 @@ xxhash==3.5.0
 yarl==1.20.1
 zstandard==0.23.0
 locust
-fastapi
-uvicorn
-openai
-azure-search-documents
-azure-core
-python-dotenv
-pymupdf
-python-docx
-
