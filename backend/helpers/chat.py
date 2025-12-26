@@ -10,10 +10,8 @@ async def chat(
     question: str = Form(...),
     files: list[UploadFile] | None = File(default=None)
 ):
-    # ----------------------------
-    # 1. Recuperar desde el índice
-    # ----------------------------
-    retrieved_docs = retrieve_from_index(question)  # SIN await
+    # 1️⃣ Recuperar contexto desde Azure AI Search (Fabric)
+    retrieved_docs = retrieve_from_index(question)
 
     index_context = ""
     citations = []
@@ -59,6 +57,7 @@ PREGUNTA:
         "answer": completion.choices[0].message.content,
         "citations": citations,
     }
+
 
 
 # from fastapi import APIRouter, UploadFile, File
