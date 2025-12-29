@@ -2,8 +2,7 @@ from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
 from app.config import settings
 
-
-# 🔹 Cliente global (se crea UNA vez)
+# Cliente global de Azure AI Search
 search_client = SearchClient(
     endpoint=settings.AZURE_SEARCH_ENDPOINT,
     index_name=settings.AZURE_SEARCH_INDEX,
@@ -21,10 +20,11 @@ def retrieve_from_index(query: str, top_k: int = 5):
     for r in results:
         docs.append({
             "id": r.get("id"),
-            "texto": r.get("TEXTOPROVIDENCIA", "")  # 🔴 ajusta al campo real
+            "texto": r.get("TEXTOPROVIDENCIA", "")
         })
 
     return docs
+
 
 # from azure.search.documents import SearchClient
 # from azure.core.credentials import AzureKeyCredential

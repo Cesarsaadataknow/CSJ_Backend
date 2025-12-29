@@ -1,40 +1,52 @@
 from fastapi import APIRouter, UploadFile, File, Form
 from core.retrieval import retrieve_from_index
 from core.ai_services import AIServices
+from helpers.document_loader import extract_text_from_file
 from app.config import settings
 
 chat_router = APIRouter(tags=["chat"])
+
+TEXTOPROVIDENCIA = """
+(TEXTO BASE DE PROVIDENCIA AQUÍ)
+"""
 
 @chat_router.post("/")
 async def chat(
     question: str = Form(...),
     files: list[UploadFile] | None = File(default=None)
 ):
-    # 1️⃣ Recuperar contexto desde Azure AI Search (Fabric)
+    # 1️⃣ Texto de documentos cargados
+    uploaded_text = ""
+
+    if files:
+        for file in files:
+            extracted = await extract_text_from_file(file)
+            uploaded_text += f"\n\n[DOCUMENTO: {file.filename}]\n{extracted}"
+
+    # 2️⃣ Recuperar desde índice (Fabric / AI Search)
     retrieved_docs = retrieve_from_index(question)
 
     index_context = ""
     citations = []
 
     for i, d in enumerate(retrieved_docs, 1):
-        if not d["texto"].strip():
-            continue
+        if d["texto"].strip():
+            index_context += f"[ÍNDICE {i}]\n{d['texto']}\n\n"
+            citations.append(f"[ÍNDICE {i}] ID: {d['id']}")
 
-        index_context += f"[ÍNDICE {i}]\n{d['texto']}\n\n"
-        citations.append(f"[ÍNDICE {i}] ID: {d['id']}")
-
-    if not index_context.strip():
-        return {
-            "answer": "La información no se encuentra en los documentos disponibles.",
-            "citations": []
-        }
-
+    # 3️⃣ Prompt final (RAG + Documento + Providencia)
     system_prompt = """
-Eres un asistente jurídico especializado en providencias de resolución de conflictos.
+Eres un asistente jurídico experto en resolución de conflictos de competencias.
 Responde SOLO con base en los documentos proporcionados.
 """
 
     user_prompt = f"""
+TEXTO PROVIDENCIA BASE:
+{TEXTOPROVIDENCIA}
+
+DOCUMENTOS CARGADOS:
+{uploaded_text}
+
 DOCUMENTOS DEL ÍNDICE:
 {index_context}
 
@@ -60,92 +72,62 @@ PREGUNTA:
 
 
 
-# from fastapi import APIRouter, UploadFile, File
-# from pydantic import BaseModel
+# from fastapi import APIRouter, UploadFile, File, Form
 # from core.retrieval import retrieve_from_index
 # from core.ai_services import AIServices
-# from helpers.document_loader import load_pdf, load_docx, simple_chunk
+# from app.config import settings
 
-# chat_router = APIRouter()
-
-# class ChatRequest(BaseModel):
-#     question: str
+# chat_router = APIRouter(tags=["chat"])
 
 # @chat_router.post("/")
 # async def chat(
-#     request: ChatRequest,
+#     question: str = Form(...),
 #     files: list[UploadFile] | None = File(default=None)
 # ):
-
-#     # ----------------------------
-#     # 1. Recuperar desde el índice
-#     # ----------------------------
-#     retrieved_docs = await retrieve_from_index(request.question)
+#     # 1️⃣ Recuperar contexto desde Azure AI Search (Fabric)
+#     retrieved_docs = retrieve_from_index(question)
 
 #     index_context = ""
 #     citations = []
 
 #     for i, d in enumerate(retrieved_docs, 1):
+#         if not d["texto"].strip():
+#             continue
+
 #         index_context += f"[ÍNDICE {i}]\n{d['texto']}\n\n"
 #         citations.append(f"[ÍNDICE {i}] ID: {d['id']}")
 
-#     # ----------------------------------
-#     # 2. Procesar documentos del usuario
-#     # ----------------------------------
-#     user_context = ""
-#     if files:
-#         for f in files:
-#             content = await f.read()
-#             if f.filename.lower().endswith(".pdf"):
-#                 text = load_pdf(content)
-#             elif f.filename.lower().endswith(".docx"):
-#                 text = load_docx(content)
-#             else:
-#                 continue
+#     if not index_context.strip():
+#         return {
+#             "answer": "La información no se encuentra en los documentos disponibles.",
+#             "citations": []
+#         }
 
-#             chunks = simple_chunk(text)
-#             for c in chunks[:5]:
-#                 user_context += f"[DOCUMENTO USUARIO]\n{c}\n\n"
-#                 citations.append(f"[DOCUMENTO USUARIO] {f.filename}")
-
-#     # ----------------------------
-#     # 3. Prompt legal estricto
-#     # ----------------------------
 #     system_prompt = """
 # Eres un asistente jurídico especializado en providencias de resolución de conflictos.
-
-# REGLAS OBLIGATORIAS:
-# 1. Responde ÚNICAMENTE con la información contenida en los documentos proporcionados.
-# 2. NO uses conocimiento externo.
-# 3. NO infieras ni completes información.
-# 4. Si la respuesta no está en los documentos, responde:
-#    "La información no se encuentra en los documentos disponibles."
-# 5. Toda afirmación debe estar citada.
+# Responde SOLO con base en los documentos proporcionados.
 # """
 
 #     user_prompt = f"""
 # DOCUMENTOS DEL ÍNDICE:
 # {index_context}
 
-# DOCUMENTOS CARGADOS POR EL USUARIO:
-# {user_context}
-
 # PREGUNTA:
-# {request.question}
+# {question}
 # """
 
 #     client = AIServices.chat_client()
 
 #     completion = client.chat.completions.create(
-#         model=settings.ai_services.chat_deployment,
+#         model=settings.AZURE_OPENAI_CHAT_DEPLOYMENT,
 #         messages=[
 #             {"role": "system", "content": system_prompt},
-#             {"role": "user", "content": user_prompt}
+#             {"role": "user", "content": user_prompt},
 #         ],
-#         temperature=0
+#         temperature=0,
 #     )
 
 #     return {
 #         "answer": completion.choices[0].message.content,
-#         "citations": citations
+#         "citations": citations,
 #     }
