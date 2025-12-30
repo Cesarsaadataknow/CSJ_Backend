@@ -60,7 +60,6 @@ orjson==3.11.0
 ormsgpack==1.10.0
 packaging==24.2
 pandas==2.3.1
-pip==23.0.1
 propcache==0.3.2
 pyasn1==0.6.1
 pycparser==2.22
@@ -69,6 +68,7 @@ pydantic_core==2.33.2
 pydantic-settings==2.10.1
 PyJWT==2.10.1
 pypdf==5.8.0
+pymupdf
 python-dateutil==2.9.0.post0
 python-docx==1.1.2
 python-dotenv==1.1.1
@@ -102,3 +102,4 @@ xxhash==3.5.0
 yarl==1.20.1
 zstandard==0.23.0
 locust
+

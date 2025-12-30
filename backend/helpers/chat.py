@@ -1,16 +1,25 @@
-
 #==================================================================================
 
+import uuid
 from fastapi import APIRouter, UploadFile, File, Form
 from pydantic import BaseModel
+
 from core.retrieval import retrieve_from_index
-from core.ai_services import AIServices
+from core.ai_services import AIServices 
 from helpers.document_loader import extract_text_from_file
 from helpers.word_writer import generate_word
 from helpers.prompts import build_prompt
 from app.config import settings
 
+
+
+# -----------------------------------------------------------------------------
+# region               INICIALIZACIÓN Y CONFIGURACIÓN
+# -----------------------------------------------------------------------------
+# Instancias de servicios
+cosmos_db = AIServices.AzureCosmosDB()
 chat_router = APIRouter(tags=["chat"])
+# endregion
 
 
 # =====================================================
@@ -18,6 +27,8 @@ chat_router = APIRouter(tags=["chat"])
 # =====================================================
 class ChatJSONRequest(BaseModel):
     question: str
+    session_id: str | None = None
+    user_id: str | None = None   # opcional si lo tienes
 
 
 # =====================================================
@@ -26,9 +37,11 @@ class ChatJSONRequest(BaseModel):
 @chat_router.post("/")
 async def chat(
     question: str = Form(...),
+    session_id: str | None = Form(default=None),   
+    user_id: str | None = Form(default=None),    
     files: list[UploadFile] | None = File(default=None)
 ):
-    return await _process_chat(question, files)
+    return await _process_chat(question, files, session_id=session_id, user_id=user_id)
 
 
 # =====================================================
@@ -36,7 +49,7 @@ async def chat(
 # =====================================================
 @chat_router.post("/json")
 async def chat_json(payload: ChatJSONRequest):
-    return await _process_chat(payload.question, files=None)
+    return await _process_chat(payload.question, files=None, session_id=payload.session_id, user_id=payload.user_id)
 
 
 # =====================================================
@@ -45,9 +58,11 @@ async def chat_json(payload: ChatJSONRequest):
 @chat_router.post("/upload")
 async def chat_upload(
     question: str = Form(...),
+    session_id: str | None = Form(default=None),  
+    user_id: str | None = Form(default=None),     
     files: list[UploadFile] = File(...)
 ):
-    return await _process_chat(question, files)
+    return await _process_chat(question, files, session_id=session_id, user_id=user_id)
 
 
 # =====================================================
@@ -55,17 +70,25 @@ async def chat_upload(
 # =====================================================
 async def _process_chat(
     question: str,
-    files: list[UploadFile] | None
+    files: list[UploadFile] | None,
+    session_id: str | None,
+    user_id: str | None
 ):
+    # 0) Asegurar session_id
+    if not session_id:
+        session_id = str(uuid.uuid4())
+
     # -------------------------------------------------
     # 1️⃣ Texto de documentos cargados
     # -------------------------------------------------
     uploaded_text = ""
+    uploaded_files = []
 
     if files:
         for file in files:
             extracted = extract_text_from_file(file)  # SIN await
             uploaded_text += f"\n\n[DOCUMENTO: {file.filename}]\n{extracted}"
+            uploaded_files.append(file.filename)
 
     # -------------------------------------------------
     # 2️⃣ Recuperar desde índice
@@ -74,6 +97,7 @@ async def _process_chat(
 
     index_context = ""
     citations = []
+    retrieved_ids = []
 
     for i, d in enumerate(retrieved_docs, 1):
         texto = d.get("texto", "").strip()
@@ -82,12 +106,32 @@ async def _process_chat(
 
         index_context += f"[ÍNDICE {i}]\n{texto}\n\n"
         citations.append(f"[ÍNDICE {i}] ID: {d.get('id')}")
+        retrieved_ids.append(d.get("id"))
 
+    # Caso sin contexto: también lo guardamos en Cosmos
     if not index_context.strip() and not uploaded_text.strip():
-        return {
+        no_info_response = {
             "answer": "No se encontró información suficiente en el índice ni en los documentos cargados.",
             "citations": [],
+            "session_id": session_id,
         }
+
+        cosmos_db.save_answer_rag(
+            session_id=session_id,
+            user_id=user_id,
+            user_question=question,
+            ai_response=no_info_response["answer"],  # string
+            citations=[],
+            file_path=None,
+            channel="web",
+            extra={
+                "uploaded_files": uploaded_files,
+                "retrieved_ids": retrieved_ids,
+                "status": "no_context"
+            }
+        )
+
+        return no_info_response
 
     # -------------------------------------------------
     # 3️⃣ Contexto unificado (RAG)
@@ -147,13 +191,33 @@ DOCUMENTOS CARGADOS POR EL USUARIO:
     )
 
     # -------------------------------------------------
-    # 7️⃣ Respuesta final
+    # 7️⃣ Guardar en Cosmos (session + message)
+    # -------------------------------------------------
+    cosmos_db.save_answer_rag(
+        session_id=session_id,
+        user_id=user_id,
+        user_question=question,
+        ai_response=sections,         
+        citations=citations,
+        file_path=output_path,
+        channel="web",
+        extra={
+            "uploaded_files": uploaded_files,
+            "retrieved_ids": retrieved_ids,
+            "status": "ok"
+        }
+    )
+
+    # -------------------------------------------------
+    # 8️⃣ Respuesta final
     # -------------------------------------------------
     return {
         "answer": sections,
         "citations": citations,
         "file": output_path,
+        "session_id": session_id,  # 👈 SUPER IMPORTANTE
     }
+
 
 ##===========================================================================================
 # from fastapi import APIRouter, UploadFile, File, Form
