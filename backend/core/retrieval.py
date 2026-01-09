@@ -2,22 +2,48 @@ from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
 from app.config import settings
 
+
 search_client = SearchClient(
     endpoint=settings.AZURE_SEARCH_ENDPOINT,
     index_name=settings.AZURE_SEARCH_INDEX,
-    credential=AzureKeyCredential(settings.AZURE_SEARCH_KEY),
+    credential=AzureKeyCredential(settings.AZURE_SEARCH_KEY)
 )
 
 def retrieve_from_index(query: str, top_k: int = 5):
-    results = search_client.search(search_text=query, top=top_k)
+    results = search_client.search(
+        search_text=query,
+        top=top_k
+    )
 
     docs = []
+
     for r in results:
+        texto = ""
+
+        # 1️⃣ Casos Fabric / CSJ
+        if r.get("TEXTOPROVIDENCIA"):
+            texto = r["TEXTOPROVIDENCIA"]
+
+        # 2️⃣ Casos documentos cargados manualmente
+        elif r.get("content"):
+            texto = r["content"]
+
+        # 3️⃣ Descriptores (lista → string)
+        elif r.get("DescriptoresTesis"):
+            if isinstance(r["DescriptoresTesis"], list):
+                texto = "\n".join(r["DescriptoresTesis"])
+            else:
+                texto = r["DescriptoresTesis"]
+
+        # 4️⃣ Fallback
+        else:
+            texto = ""
+
         docs.append({
             "id": r.get("id"),
-            "texto": r.get("TEXTOPROVIDENCIA", ""),
-            "problema": r.get("ProblemaJuridico", ""),
-            "decision": r.get("DECISION", "")
+            "texto": texto,
+            "score": r.get("@search.score"),
+            "filename": r.get("filename", "")
         })
 
     return docs
@@ -27,25 +53,23 @@ def retrieve_from_index(query: str, top_k: int = 5):
 # from azure.core.credentials import AzureKeyCredential
 # from app.config import settings
 
-# # Cliente global de Azure AI Search
 # search_client = SearchClient(
 #     endpoint=settings.AZURE_SEARCH_ENDPOINT,
 #     index_name=settings.AZURE_SEARCH_INDEX,
-#     credential=AzureKeyCredential(settings.AZURE_SEARCH_KEY)
+#     credential=AzureKeyCredential(settings.AZURE_SEARCH_KEY),
 # )
 
-
 # def retrieve_from_index(query: str, top_k: int = 5):
-#     results = search_client.search(
-#         search_text=query,
-#         top=top_k
-#     )
+#     results = search_client.search(search_text=query, top=top_k)
 
 #     docs = []
 #     for r in results:
 #         docs.append({
 #             "id": r.get("id"),
-#             "texto": r.get("TEXTOPROVIDENCIA", "")
+#             "texto": r.get("TEXTOPROVIDENCIA", ""),
+#             "problema": r.get("ProblemaJuridico", ""),
+#             "decision": r.get("DECISION", "")
 #         })
 
 #     return docs
+
