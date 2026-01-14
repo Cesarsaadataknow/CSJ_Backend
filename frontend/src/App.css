@@ -57,9 +57,3 @@
 .message-content {
   width: 100%;
 }
-
-html.dark strong,
-html.dark strong ul li::marker,
-html.dark ol li::marker {
-  color: white !important;
-}

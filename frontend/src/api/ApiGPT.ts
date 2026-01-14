@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosInstance } from "axios";
 
-const BASE_URL = import.meta.env.VITE_APP_API_URL_GPT;
+const BASE_URL = "http://localhost:8000/api";
 
 const apiClientMultipart: AxiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -15,13 +16,9 @@ const apiClientCommon: AxiosInstance = axios.create({
 
 // Tipos para las funciones
 interface ChatRequestData {
-  query: string;
-  conversation_id: string;
-  message_id: string;
-  conversation_name: string;
-  flag_modifier: boolean;
-  model_name?: string;
-  search_tool: boolean;
+  question: string;
+  session_id: string;
+  user_id: string;
 }
 
 interface VoteRequestData {
@@ -93,27 +90,22 @@ const api = {
     return response.data;
   },
 
-  async requestChat(
-    user_query: string,
-    msg_id: string,
-    modifier: boolean,
-    search_tool: boolean,
-    model_name: string = "gpt-4o",
-    session_id: string,
-    session_name: string
-  ): Promise<any> {
+  async requestChat({
+    question,
+    session_id,
+    user_id,
+  }: {
+    question: string;
+    session_id: string;
+    user_id: string;
+  }): Promise<any> {
     const requestData: ChatRequestData = {
-      query: user_query,
-      conversation_id: session_id,
-      message_id: msg_id,
-      conversation_name: session_name,
-      flag_modifier: modifier,
-      model_name,
-      search_tool: model_name === "o1-mini" ? false : search_tool,
+      question,
+      session_id,
+      user_id,
     };
-
     const response: ApiResponse = await apiClientCommon.post(
-      "/chat/message",
+      "/chat/json",
       requestData,
       {
         headers: {
@@ -129,7 +121,7 @@ const api = {
 
   async requestAttachment(attachment: AttachmentFile): Promise<any> {
     const response: ApiResponse = await apiClientMultipart.post(
-      "/chat/attachment",
+      "/chat/upload",
       attachment,
       {
         headers: {

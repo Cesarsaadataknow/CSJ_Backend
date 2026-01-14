@@ -12,7 +12,7 @@ import { Button } from "../ui/button";
 import { toast } from "sonner";
 import { cx } from "classix";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUpIcon, Globe, Paperclip } from "lucide-react";
+import { ArrowUpIcon, Paperclip } from "lucide-react";
 import ListFile from "../custom/ListFile";
 import { StopIcon } from "../custom/icons";
 import DropdownModel from "./DropdownModel";
@@ -27,7 +27,6 @@ interface ChatInputProps {
     isUpdate?: boolean | undefined;
     is_regenerate: boolean;
     files: File[];
-    search: boolean;
   }) => void;
   isLoading: boolean;
   instructions: string;
@@ -35,8 +34,6 @@ interface ChatInputProps {
   hasStartedChat: boolean;
   files: File[];
   setFiles: Dispatch<SetStateAction<File[]>>;
-  isSearch: boolean;
-  setIsSearch: Dispatch<SetStateAction<boolean>>;
   handleStop: () => void;
 }
 const MAX_FILES = 10;
@@ -48,8 +45,6 @@ export const InputGPT = ({
   isLoading,
   files,
   setFiles,
-  isSearch,
-  setIsSearch,
   handleStop,
 }: ChatInputProps) => {
   const [isDraggingGlobal, setIsDraggingGlobal] = useState(false);
@@ -141,7 +136,6 @@ export const InputGPT = ({
       text: question,
       is_regenerate: false,
       files: files,
-      search: isSearch,
     });
     setQuestion("");
     setFiles([]);
@@ -222,7 +216,7 @@ export const InputGPT = ({
               variant="outline"
               className={
                 isSearch
-                  ? "bg-blue-500/45 !text-blue-900 border border-blue-600 dark:!text-neutral-900 hover:bg-blue-400/45 "
+                  ? "bg-blue-500/45 !text-blue-900 border border-blue-600 hover:bg-blue-400/45 "
                   : ""
               }
               onClick={() => setIsSearch((prev) => !prev)}

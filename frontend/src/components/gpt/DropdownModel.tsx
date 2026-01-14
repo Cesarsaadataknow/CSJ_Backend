@@ -76,22 +76,18 @@ export default function DropdownModel({ value, setValue }: Props) {
       <div ref={dropdownRef} className="relative inline-block text-left">
         {/* Menú desplegable */}
         {open && (
-          <div
-            className="fixed lg:absolute bottom-0 lg:bottom-full left-0 lg:left-auto lg:right-0 z-[1000] lg:w-60 w-full h-[200px] mt-2 bg-neutral-50 border border-default-medium rounded-b-none lg:rounded-lg lg:mb-1 shadow-lg dark:bg-neutral-800 dark:border-neutral-700"
-          >
+          <div className="fixed lg:absolute bottom-0 lg:bottom-full left-0 lg:left-auto lg:right-0 z-[1000] lg:w-60 w-full h-[200px] mt-2 bg-neutral-50 border border-default-medium rounded-b-none lg:rounded-lg lg:mb-1 shadow-lg">
             <ul className="p-2 text-sm text-body font-medium">
               {MODELS.map(({ value: val, label, description }) => (
                 <li key={val}>
                   <button
                     onClick={() => handleDropdown(val)}
                     className={`w-full text-start p-2 rounded transition ${
-                      value === val
-                        ? "bg-neutral-200 dark:bg-neutral-600"
-                        : "hover:bg-neutral-200 dark:hover:bg-neutral-500"
+                      value === val ? "bg-neutral-200" : "hover:bg-neutral-200"
                     }`}
                   >
                     <h4 className="font-semibold text-lg">{label}</h4>
-                    <span className="font-normal text-sm dark:text-neutral-400 text-neutral-700">
+                    <span className="font-normal text-sm text-neutral-700">
                       {description}
                     </span>
                   </button>

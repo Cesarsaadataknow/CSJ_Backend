@@ -28,12 +28,12 @@ export default function ListFile({ files, onRemove }: Props) {
             key={fileName + index}
             title={fileName}
             className="flex items-center gap-2 px-3 py-1.5
-                       bg-white dark:bg-zinc-800
-                       border border-zinc-300 dark:border-zinc-700
+                       bg-white
+                       border border-zinc-300
                        rounded-lg shadow-sm hover:shadow-md transition
                        max-w-[250px] overflow-hidden"
           >
-            <div className="text-zinc-600 dark:text-zinc-300">
+            <div className="text-zinc-600">
               {getIcon(fileName)}
             </div>
 

@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { SquarePen, ChevronRight, Database, Trash2 } from "lucide-react";
+import { SquarePen, ChevronRight, Trash2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChatInterface } from "@/interfaces/interfaces";
 import api from "@/api/ApiGPT";
@@ -84,7 +84,7 @@ export function Sidebar({
       />
 
       <div
-        className={`fixed z-50 lg:relative h-full bg-background gap-2 border-r border-gray-200 dark:border-gray-600 p-2 transition-all flex flex-col overflow-x-hidden
+        className={`fixed z-50 lg:relative h-full bg-background gap-2 border-r border-gray-200 p-2 transition-all flex flex-col overflow-x-hidden
       ${
         isOpen
           ? "lg:w-3/12 w-8/12 top-0"
@@ -240,12 +240,12 @@ const SideBarItem = ({
   return (
     <button
       ref={itemRef}
-      className={`flex flex-row items-center w-full p-2 gap-2 rounded-lg text-sm text-neutral-700 dark:text-neutral-200 font-normal transition-all duration-300
+      className={`flex flex-row items-center w-full p-2 gap-2 rounded-lg text-sm text-neutral-700 font-normal transition-all duration-300
       justify-between group
       ${
         active
-          ? "bg-[#fc102850] !text-[#ed1b2e] font-semibold"
-          : "bg-transparent hover:bg-neutral-200 dark:hover:bg-neutral-700"
+          ? "bg-[#85bbf8] !text-[#153f70] font-semibold"
+          : "bg-transparent hover:bg-neutral-200"
       }
       ${isSticky ? "sticky top-0" : ""}
       ${isStickyActive ? "border-b border-gray-300 shadow-sm bg-white" : ""}`}
@@ -274,7 +274,7 @@ const SkeletonItem = () => (
   <div
     className={`
         h-6 rounded-full w-full
-        bg-gray-300 dark:bg-gray-600
+        bg-gray-300
       `}
   />
 );

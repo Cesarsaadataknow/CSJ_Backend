@@ -26,8 +26,6 @@ import {
 import ListFile from "@/components/custom/ListFile";
 import { Button } from "@/components/ui/button";
 import UseLogout from "@/hooks/useLogout";
-import { useMsal } from "@azure/msal-react";
-import { useTheme } from "@/context/ThemeContext";
 
 interface Message {
   id: string;
@@ -35,6 +33,7 @@ interface Message {
   answer: string;
   files: File[] | string[] | null;
   rate: null | number;
+  linkFile: string;
 }
 
 type props = {
@@ -64,16 +63,13 @@ export function Chat({
   const [isLoadingChat, setIsLoadingChat] = useState<boolean>(false);
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
-  const [isSearch, setIsSearch] = useState(false);
   const isStop = useRef<boolean>(false);
   const { logout, user } = UseLogout();
-  const { accounts } = useMsal();
-  const { modelSelect } = useTheme();
 
-  const pushMessage = (msg: Message) => {
+  const pushMessage = (msg: Message, idChatValue: string | null = null) => {
     setAllMsg((prev: any) => ({
       ...prev,
-      [idChat]: [...(prev[idChat] || []), msg],
+      [idChatValue || idChat]: [...(prev[idChatValue || idChat] || []), msg],
     }));
   };
 
@@ -88,6 +84,13 @@ export function Chat({
     handleEdit(messageId, allMsgCopy);
   };
 
+  const formatText = (answer: any) => {
+    if (typeof answer == "object") {
+      return Object.values(answer).filter(Boolean).join("\n\n\n\n");
+    }
+    return answer;
+  };
+
   const handleSubmit = async ({
     text = "",
     idMessageCorrected = "",
@@ -99,11 +102,13 @@ export function Chat({
     is_regenerate: boolean;
     files: File[] | null;
   }) => {
-    if (isLoading || !user) return;
+    if (isLoading) return;
     const messageId = idMessageCorrected || uuidv4();
     const DESIRED_LENGTH = 28;
     const messageText = text;
     const isChat = chats.findIndex((chat) => chat.chatId == idChat);
+    const idChatLocal = idChat;
+
     const titleChat =
       isChat >= 0
         ? chats[isChat].title
@@ -111,46 +116,63 @@ export function Chat({
         ? messageText.substring(0, DESIRED_LENGTH)
         : messageText;
 
+    // Crear nueva sesión si no existe
+    // if (isChat < 0) {
+    //   try {
+    //     const res: any = await api.create_session(
+    //       user1?.userName || "",
+    //       titleChat
+    //     );
+    //     idChatLocal = res.session_id;
+    //     setIdChat(idChatLocal);
+    //   } catch (err: any) {
+    //     logout(err?.status || "");
+    //     return;
+    //   }
+    // }
+
     if (!is_regenerate) {
-      pushMessage({
-        id: messageId,
-        answer: text,
-        role: "user",
-        files,
-        rate: null,
-      });
+      pushMessage(
+        {
+          id: messageId,
+          answer: text,
+          role: "user",
+          files,
+          rate: null,
+          linkFile: "",
+        },
+        idChatLocal
+      );
     }
 
     setIsLoading(true);
     try {
       let assistantText = "";
+      let linkFile = "";
       if (files?.length) {
         const formData = new FormData();
-        formData.append("message_id", messageId);
-        formData.append("conversation_id", idChat);
-        formData.append("conversation_name", titleChat);
-        formData.append("message", messageText);
-        formData.append("flag_modifier", String(is_regenerate));
-        formData.append("model_name", modelSelect.toLowerCase());
-        formData.append("search_tool", String(isSearch));
+        formData.append("user_id", "user@test.com");
+        formData.append("session_id", idChatLocal);
+        formData.append("question", messageText);
+        // formData.append("flag_modifier", String(is_regenerate));
+        // formData.append("model_name", modelSelect.toLowerCase());
+        // formData.append("search_tool", String(isSearch));
 
         files.forEach((fileObj: any) => {
           formData.append("files", fileObj);
         });
 
         const res = await api.requestAttachment(formData);
-        assistantText = res.text;
+        assistantText = formatText(res.answer);
+        linkFile = res.file;
       } else {
-        const res = await api.requestChat(
-          text,
-          messageId,
-          is_regenerate,
-          isSearch,
-          modelSelect.toLowerCase(),
-          idChat,
-          titleChat
-        );
-        assistantText = res.text;
+        const res = await api.requestChat({
+          question: text,
+          session_id: idChatLocal,
+          user_id: "user@test.com",
+        });
+        assistantText = formatText(res.answer);
+        linkFile = res.file;
       }
 
       if (isStop.current) {
@@ -158,33 +180,41 @@ export function Chat({
         return;
       }
 
-      pushMessage({
-        id: messageId,
-        answer: assistantText,
-        role: "assistant",
-        files: [],
-        rate: null,
-      });
+      pushMessage(
+        {
+          id: messageId,
+          answer: assistantText,
+          role: "assistant",
+          files: [],
+          rate: null,
+          linkFile,
+        },
+        idChatLocal
+      );
     } catch (error: any) {
       logout(error?.response?.statusText || "");
-      pushMessage({
-        id: messageId,
-        answer: "Hubo un error al procesar tu mensaje.",
-        role: "assistant",
-        files: [],
-        rate: null,
-      });
+      pushMessage(
+        {
+          id: messageId,
+          answer: "Hubo un error al procesar tu mensaje.",
+          role: "assistant",
+          files: [],
+          rate: null,
+          linkFile: "",
+        },
+        idChatLocal
+      );
     } finally {
       if (newChat) {
         setChats((prev) => [
           {
-            chatId: idChat,
+            chatId: idChatLocal,
             title: titleChat,
             created_at: JSON.stringify(new Date()),
           },
           ...prev,
         ]);
-        navigate(`/c/${idChat}`);
+        navigate(`c/${idChatLocal}`);
       }
       setIsLoading(false);
       setFiles([]);
@@ -239,6 +269,7 @@ export function Chat({
                 id: msg.id,
                 role: msg.role,
                 rate: msg?.rate || null,
+                linkFile: msg?.file || "",
               };
             }),
           };
@@ -246,7 +277,12 @@ export function Chat({
         // eslint-disable-next-line @typescript-eslint/no-unused-expressions
         res.messages.map;
       })
-      .catch((err: any) => logout(err?.status || ""))
+      .catch((err: any) => {
+        toast.error(`No existe la conversación ${id}`);
+        navigate("/");
+
+        logout(err?.status || "");
+      })
       .finally(() => setIsLoadingChat(false));
   };
 
@@ -310,6 +346,7 @@ export function Chat({
       role: "assistant",
       files: null,
       rate: null,
+      linkFile: "",
     });
     //   try {
     //   await api.requestVote(stop_msg_id, 2);
@@ -350,7 +387,7 @@ export function Chat({
   return (
     <>
       <div
-        className="flex flex-col w-full max-w-4xl gap-6 flex-1 overflow-y-auto pt-4 scrollbar-thin px-2 scrollbar-thumb-gray-400 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-zinc-800"
+        className="flex flex-col w-full max-w-4xl gap-6 flex-1 overflow-y-auto pt-4 scrollbar-thin px-2 scrollbar-thumb-gray-400 scrollbar-track-gray-100"
         ref={messagesContainerRef}
       >
         <div className="flex-1 text-sm space-y-2 flex flex-col">
@@ -370,7 +407,7 @@ export function Chat({
                     <ListFile files={msg.files} />
                     {msg.answer && (
                       <div
-                        className={`bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm w-fit max-w-xl ${
+                        className={`bg-gray-100 px-4 py-2 rounded-lg border border-gray-300 shadow-sm w-fit max-w-xl ${
                           editingId == msg.id && "!w-full"
                         }`}
                       >
@@ -439,7 +476,7 @@ export function Chat({
 
                 {msg.role === "assistant" && (
                   <div>
-                    <div className="text-neutral-700 dark:!text-neutral-200 w-fit max-w-8/12 rounded-2xl rounded-tr-none p-2 ia-response prose dark:!prose-invert dark:prose-a:font-extrabold">
+                    <div className="text-neutral-700 w-fit max-w-8/12 rounded-2xl rounded-tr-none p-2 ia-response prose">
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         rehypePlugins={[rehypeRaw]}
@@ -464,6 +501,13 @@ export function Chat({
                       >
                         {msg.answer}
                       </ReactMarkdown>
+                      {msg.linkFile ? (
+                        <Button onClick={() => console.log(msg.linkFile)}>
+                          Descargar .docx
+                        </Button>
+                      ) : (
+                        <></>
+                      )}
                     </div>
                     <div className="flex flex-row">
                       <Button
@@ -526,8 +570,6 @@ export function Chat({
         key={id}
         files={files}
         setFiles={setFiles}
-        isSearch={isSearch}
-        setIsSearch={setIsSearch}
         handleStop={handleStop}
       />
     </>
@@ -542,14 +584,14 @@ const ChatSkeleton = () => (
     <div className="flex justify-start animate-pulse">
       <div
         className="w-full max-w-xl h-8 rounded-xl
-                   bg-gray-300 dark:bg-gray-600"
+                   bg-gray-300 "
       />
     </div>
     {/* Mensaje 2: IA (Izquierda, más corto) */}
     <div className="flex justify-start animate-pulse">
       <div
         className="w-3/4 max-w-md h-8 rounded-xl
-                   bg-gray-300 dark:bg-gray-600"
+                   bg-gray-300 "
       />
     </div>
     {/* Mensaje 3: Usuario (Derecha) */}
@@ -564,7 +606,7 @@ const ChatSkeleton = () => (
     <div className="flex justify-start animate-pulse">
       <div
         className="w-4/5 max-w-lg h-8 rounded-xl
-                   bg-gray-300 dark:bg-gray-600"
+                   bg-gray-300 "
       />
     </div>
     {/* Mensaje 5: Usuario (Derecha, más largo) */}

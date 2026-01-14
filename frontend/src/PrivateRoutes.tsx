@@ -6,7 +6,6 @@ import {
 } from "./interfaces/interfaces";
 import { useEffect, useState } from "react";
 import { MainLayout } from "./components/layout/MainLayout";
-import { ChatSQL } from "./pages/chatSql/chatSQL";
 import api from "./api/ApiGPT";
 import UseLogout from "./hooks/useLogout";
 

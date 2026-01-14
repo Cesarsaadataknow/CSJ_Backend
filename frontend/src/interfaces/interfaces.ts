@@ -39,6 +39,7 @@ export interface ConversationMessage {
   created_at: string; // ISO8601
   rate: number | null;
   files: string[] | null;
+  file: string;
 }
 
 export interface ConversationDetailResponse {

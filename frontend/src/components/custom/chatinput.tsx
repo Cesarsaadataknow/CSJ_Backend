@@ -153,7 +153,7 @@ export const ChatInput = ({
           onClick={() => {
             toast.custom(
               (t) => (
-                <div className="bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-xl p-4 shadow-lg w-full max-w-xs sm:max-w-sm md:max-w-md text-sm flex flex-col gap-2">
+                <div className="bg-white border-gray-300 rounded-xl p-4 shadow-lg w-full max-w-xs sm:max-w-sm md:max-w-md text-sm flex flex-col gap-2">
                   <div className="font-semibold text-base">
                     ¿Cómo usar el Agente SQL de Alqueria?
                   </div>
@@ -240,14 +240,14 @@ export const ChatInput = ({
             placeholder="Especifica reglas o filtros que el agente debe seguir..."
             value={instructions}
             onChange={(e) => setInstructions(e.target.value)}
-            className="bg-white dark:bg-zinc-800 text-base rounded-xl"
+            className="bg-white text-base rounded-xl"
             rows={3}
           />
         </div>
       )}
 
       <Button
-        className="rounded-full p-1.5 h-fit absolute bottom-2 right-2 m-0.5 border dark:border-zinc-600"
+        className="rounded-full p-1.5 h-fit absolute bottom-2 right-2 m-0.5 border"
         onClick={() => onSubmit(question)}
         disabled={question.length === 0}
       >
