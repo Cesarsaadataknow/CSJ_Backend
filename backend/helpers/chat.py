@@ -4,11 +4,11 @@
 import uuid
 from fastapi import APIRouter, UploadFile, File, Form
 from pydantic import BaseModel
-
+from datetime import datetime
 from core.retrieval import retrieve_from_index
 from core.ai_services import AIServices 
 from helpers.document_loader import extract_text_from_file
-from helpers.word_writer import generate_word
+from helpers.word_writer import generate_word, upload_to_onelake
 from helpers.prompts import build_prompt
 from app.config import settings
 
@@ -183,12 +183,24 @@ DOCUMENTOS CARGADOS POR EL USUARIO:
     # -------------------------------------------------
     # 6️⃣ Generar Word
     # -------------------------------------------------
-    output_path = "output/providencia_generada.docx"
-
-    generate_word(
+    docx_bytes = generate_word(
         template_path="templates/providencia.docx",
-        output_path=output_path,
-        content=sections,
+        content=sections
+    )
+
+    # destino en OneLake
+    folder = f"documentos_generados/{datetime.utcnow().year}/{datetime.utcnow().month:02d}"
+    filename = f"providencia_{session_id}.docx"
+
+    WORKSPACE_NAME = "WS_Resolucion_Conflictos_Competencias_Administrativas"      # <-- pon el nombre real del workspace de Fabric
+    LAKEHOUSE_NAME = "csj_documentos"    # <-- por tu screenshot
+
+    onelake_path = upload_to_onelake(
+        workspace_name=WORKSPACE_NAME,
+        lakehouse_name=LAKEHOUSE_NAME,
+        folder=folder,
+        filename=filename,
+        content_bytes=docx_bytes
     )
 
     # -------------------------------------------------
@@ -200,7 +212,7 @@ DOCUMENTOS CARGADOS POR EL USUARIO:
         user_question=question,
         ai_response=sections,         
         citations=citations,
-        file_path=output_path,
+        file_path=onelake_path,
         channel="web",
         extra={
             "uploaded_files": uploaded_files,
@@ -215,7 +227,7 @@ DOCUMENTOS CARGADOS POR EL USUARIO:
     return {
         "answer": sections,
         "citations": citations,
-        "file": output_path,
+        "file": onelake_path,
         "session_id": session_id,  # 👈 SUPER IMPORTANTE
     }
 

@@ -16,6 +16,7 @@ azure-cosmos==4.9.0
 azure-identity==1.23.0
 azure-search-documents==11.5.3
 azure-storage-blob==12.25.1
+azure-storage-file-datalake
 certifi==2025.7.14
 cffi==1.17.1
 charset-normalizer==3.4.2
