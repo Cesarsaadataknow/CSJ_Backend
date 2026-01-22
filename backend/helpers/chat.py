@@ -189,7 +189,7 @@ DOCUMENTOS CARGADOS POR EL USUARIO:
     )
 
     # destino en OneLake
-    folder = f"documentos_generados/{datetime.utcnow().year}/{datetime.utcnow().month:02d}"
+    folder = f"documentos_generados/"
     filename = f"providencia_{session_id}.docx"
 
     WORKSPACE_NAME = "WS_Resolucion_Conflictos_Competencias_Administrativas"      # <-- pon el nombre real del workspace de Fabric
