@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosInstance } from "axios";
 
-const BASE_URL = "http://localhost:8000/api";
+const BASE_URL =
+  "http://localhost:8000/api";
 
 const apiClientMultipart: AxiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -12,9 +13,34 @@ const apiClientMultipart: AxiosInstance = axios.create({
 
 const apiClientCommon: AxiosInstance = axios.create({
   baseURL: BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-// Tipos para las funciones
+/* 🔐 Interceptor global igual al de Vue */
+apiClientCommon.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+    const detail = error.response?.data?.detail;
+
+    if (
+      (status === 401 || status === 403) &&
+      (detail === "Token inválido" ||
+        detail === "Token expirado" ||
+        detail === "Not authenticated" ||
+        detail === "Claims inválidos")
+    ) {
+      localStorage.removeItem("access_token");
+      window.location.href = `${BASE_URL}/auth/login`;
+    }
+
+    return Promise.reject(error);
+  },
+);
+
+// Tipos
 interface ChatRequestData {
   question: string;
   session_id: string;
@@ -27,10 +53,6 @@ interface VoteRequestData {
   rate: number;
 }
 
-interface AttachmentFile {
-  [key: string]: any;
-}
-
 interface ApiResponse<T = any> {
   data: T;
 }
@@ -38,7 +60,7 @@ interface ApiResponse<T = any> {
 const api = {
   async requestToken(code: string): Promise<any> {
     const response: ApiResponse = await apiClientCommon.get(
-      `/auth/token?code=${code}`
+      `/auth/token?code=${code}`,
     );
     return response.data;
   },
@@ -50,42 +72,35 @@ const api = {
   async requestAllSession(token: string): Promise<any> {
     const response: ApiResponse = await apiClientCommon.get("/chat/sessions", {
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
     });
     return response.data;
   },
 
-  async requestOneSession(session_id: string): Promise<any> {
+  async requestOneSession(conversation_id: string): Promise<any> {
+    const token = localStorage.getItem("access_token");
     const response: ApiResponse = await apiClientCommon.get(
       "/chat/get_one_session",
       {
-        params: {
-          conversation_id: session_id,
-        },
+        params: { conversation_id },
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${
-            sessionStorage.getItem("accessToken") ?? ""
-          }`,
+          Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
     return response.data;
   },
 
   async requestDeleteSession(session_id: string): Promise<any> {
+    const token = localStorage.getItem("access_token");
     const response: ApiResponse = await apiClientCommon.delete(
       `/chat/delete_one_session/${session_id}`,
       {
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${
-            sessionStorage.getItem("accessToken") ?? ""
-          }`,
+          Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
     return response.data;
   },
@@ -104,32 +119,30 @@ const api = {
       session_id,
       user_id,
     };
+
+    const token = localStorage.getItem("access_token");
     const response: ApiResponse = await apiClientCommon.post(
-      "/chat/json",
+      "/chat/message",
       requestData,
       {
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${
-            sessionStorage.getItem("accessToken") ?? ""
-          }`,
+          Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
     return response.data;
   },
 
-  async requestAttachment(attachment: AttachmentFile): Promise<any> {
+  async requestAttachment(attachment: any): Promise<any> {
+    const token = localStorage.getItem("access_token");
     const response: ApiResponse = await apiClientMultipart.post(
-      "/chat/upload",
+      "/chat/attachment",
       attachment,
       {
         headers: {
-          Authorization: `Bearer ${
-            sessionStorage.getItem("accessToken") ?? ""
-          }`,
+          Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
     return response.data;
   },
@@ -137,7 +150,7 @@ const api = {
   async requestVote(
     msg_id: string,
     vote: number,
-    session_id: string
+    session_id: string,
   ): Promise<any> {
     const requestData: VoteRequestData = {
       id: msg_id,
@@ -145,17 +158,15 @@ const api = {
       rate: vote,
     };
 
+    const token = localStorage.getItem("access_token");
     const response: ApiResponse = await apiClientCommon.post(
       "/chat/vote",
       requestData,
       {
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${
-            sessionStorage.getItem("accessToken") ?? ""
-          }`,
+          Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
     return response.data;
   },

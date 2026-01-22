@@ -1,43 +1,54 @@
-// src/App.tsx
 import "./App.css";
 import { ThemeProvider } from "./context/ThemeContext";
-import {
-  BrowserRouter,
-  // createBrowserRouter,
-} from "react-router-dom";
-// import Login from "./pages/login/Login";
-// import {
-//   AuthenticatedTemplate,
-//   MsalProvider,
-//   UnauthenticatedTemplate,
-// } from "@azure/msal-react";
-// import { msalInstance } from "./config/msalConfig";
+import { BrowserRouter } from "react-router-dom";
 import PrivateRoutes from "./PrivateRoutes";
 import { Toaster } from "sonner";
-
-// const routerPublic = createBrowserRouter([
-//   {
-//     path: "*",
-//     element: <Login />,
-//   },
-// ]);
+import { useEffect, useState } from "react";
+import api from "./api/ApiGPT";
 
 function App() {
-  return (
-    // <MsalProvider instance={msalInstance}>
-    <ThemeProvider>
-      {/* <UnauthenticatedTemplate>
-          <RouterProvider router={routerPublic} />
-        </UnauthenticatedTemplate> */}
+  const [loading, setLoading] = useState(true);
 
-      {/* <AuthenticatedTemplate> */}
+  useEffect(() => {
+    const initAuth = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get("code");
+
+      if (localStorage.getItem("access_token")) {
+        setLoading(false);
+        return;
+      }
+
+      if (code) {
+        const data = await api.requestToken(code);
+
+        if (data?.access_token) {
+          localStorage.setItem("access_token", data.access_token);
+          localStorage.setItem("permissions", data.permissions);
+
+          window.history.replaceState({}, document.title, "/");
+          setLoading(false);
+        } else {
+          window.history.replaceState({}, document.title, "/");
+          setTimeout(() => api.requestLogin(), 1500);
+        }
+      } else {
+        setTimeout(() => api.requestLogin(), 1500);
+      }
+    };
+
+    initAuth();
+  }, []);
+
+  if (loading) return null;
+
+  return (
+    <ThemeProvider>
       <BrowserRouter>
         <PrivateRoutes />
       </BrowserRouter>
-      {/* </AuthenticatedTemplate> */}
       <Toaster />
     </ThemeProvider>
-    // </MsalProvider>
   );
 }
 

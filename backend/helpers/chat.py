@@ -246,27 +246,27 @@ DOCUMENTOS CARGADOS POR EL USUARIO:
     # -------------------------------------------------
     # 6️⃣ Generar Word
     # -------------------------------------------------
-    output_path = None
+    # output_path = None
 
-    if should_generate_document(question):
-       output_path = "output/providencia_generada.docx"
+    # if should_generate_document(question):
+    #    output_path = "output/providencia_generada.docx"
 
-    if output_path:  # doble seguridad
-        generate_word(
-            template_path="templates/providencia.docx",
-            output_path=output_path,
-            content=sections,
-        )
+    # if output_path:  # doble seguridad
+    #     generate_word(
+    #         template_path="templates/providencia.docx",
+    #         output_path=output_path,
+    #         content=sections,
+    #     )
 
-    print("📄 Generar documento:", output_path)
+    # print("📄 Generar documento:", output_path)
 
-    # output_path = "output/providencia_generada.docx"
+    output_path = "output/providencia_generada.docx"
 
-    # generate_word(
-    #     template_path="templates/providencia.docx",
-    #     output_path=output_path,
-    #     content=sections,
-    # )
+    generate_word(
+        template_path="templates/providencia.docx",
+        output_path=output_path,
+        content=sections,
+    )
 
     # -------------------------------------------------
     # 7️⃣ Guardar en Cosmos

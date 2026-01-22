@@ -15,8 +15,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowUpIcon, Paperclip } from "lucide-react";
 import ListFile from "../custom/ListFile";
 import { StopIcon } from "../custom/icons";
-import DropdownModel from "./DropdownModel";
-import { useTheme } from "@/context/ThemeContext";
 
 interface ChatInputProps {
   question: string;
@@ -50,7 +48,6 @@ export const InputGPT = ({
   const [isDraggingGlobal, setIsDraggingGlobal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
-  const { setModelSelect, modelSelect } = useTheme();
 
   // 🟢 Detecta drag & drop global, pero muestra overlay solo en el box
   useEffect(() => {
@@ -226,7 +223,7 @@ export const InputGPT = ({
             </Button> */}
           </div>
           <div className="flex flex-row gap-2">
-            <DropdownModel setValue={setModelSelect} value={modelSelect} />
+            {/* <DropdownModel setValue={setModelSelect} value={modelSelect} /> */}
             {!question.length ||
               (!isLoading && (
                 <Button

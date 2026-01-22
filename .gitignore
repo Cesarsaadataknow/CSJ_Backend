@@ -17,6 +17,7 @@ htmlcov/
 *.log
 
 # ===== Virtual envs =====
+/venv
 venv/
 .venv/
 env/
