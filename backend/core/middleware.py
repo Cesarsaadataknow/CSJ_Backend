@@ -19,7 +19,7 @@ from typing import List, Optional
 from jose import jwt
 import httpx
 import logging
-from core.config import Settings
+from app.config import Settings
 # endregion
 
 # -----------------------------------------------------------------------------

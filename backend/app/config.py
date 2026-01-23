@@ -1,11 +1,50 @@
 from pathlib import Path
+from msal import ConfidentialClientApplication
 import os
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
+
+
 class Settings:
+
+    def __init__(self):
+        """
+        Inicializa la configuración principal y todas las subconfiguraciones.
+        """
+        #self.app_name: str = "GPTCorporativoService"
+        #self.admin_email: str = "admin@example.com"
+        self.auth: Settings.Auth = Settings.Auth()
+
+    # -------------------------------------------------------------------------
+    # region           SUBCLASE: CONFIGURACIÓN DE AUTENTICACIÓN
+    # -------------------------------------------------------------------------
+    class Auth():
+        """
+        Configuración específica para autenticación con Microsoft Entra ID.
+        Incluye client ID, secret, tenant ID, scopes y cliente MSAL.
+        """
+        def __init__(self):
+            client_secret: str = os.getenv("CLIENT_SECRET")
+            tenant_id: str = os.getenv("TENANT_ID")
+            authority: str = f"https://login.microsoftonline.com/{tenant_id}"
+            self.client_id: str = os.getenv("CLIENT_ID")
+            self.redirect_uri: str = os.getenv("REDIRECT_URI")
+            self.scopes_api: list[str] = [f"api://{self.client_id}/chat_access"]
+            self.oidc_metadata_url: str = (
+                f"https://login.microsoftonline.com/{tenant_id}"
+                "/v2.0/.well-known/openid-configuration"
+            )
+            self.client_instance: ConfidentialClientApplication = ConfidentialClientApplication(
+                client_id=self.client_id,
+                client_credential=client_secret,
+                authority=authority
+            )
+    # endregion
+
+
     # Azure OpenAI
     AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
     AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY")

@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from helpers.chat import chat_router
+from api import auth
 
 app = FastAPI(
     title="Agente Jurídico - Resolución de Conflictos",
@@ -20,7 +21,11 @@ app.include_router(
     tags=["chat"]
 )
 
-
+app.include_router(
+    auth.router,
+    prefix="/api/auth", 
+    tags=["auth"]
+    )
 
 # from fastapi import FastAPI
 # from fastapi.middleware.cors import CORSMiddleware
