@@ -1,0 +1,83 @@
+node_modules/
+venv/
+dist/
+__pycache__/
+
+testbackend/
+
+########################
+
+# Node modules
+node_modules/
+
+# Build output
+/build
+/dist
+
+# Dependency directories
+bower_components/
+
+# Testing
+/coverage
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editor directories and files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# MacOS and Linux
+*.swp
+*.lock
+*.pid
+
+# Optional npm cache
+.npm/
+
+# eslint cache
+.eslintcache
+
+# Parcel cache
+.cache/
+
+# Next.js build directory (si usas Next.js en lugar de CRA)
+.next/
+
+# React Native (si aplicara)
+.expo/
+.expo-shared/
+
+# Storybook
+.out/
+
+# Optional: ignore public assets cache
+# *.webp
+# *.jpg
+# *.jpeg
+# *.png
+# *.svg
+# *.gif
+
+# Optional: ignore temporary development folders
+tmp/
+temp/
+deploy.sh
+dev.sh
