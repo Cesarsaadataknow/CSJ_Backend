@@ -1,5 +1,7 @@
+import io
 import uuid
-from fastapi import APIRouter, UploadFile, File, Form, Depends
+from fastapi import APIRouter, UploadFile, File, Form, Depends, Query, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from core.retrieval import retrieve_from_index
 from core.ai_services import AIServices
@@ -7,11 +9,17 @@ from core.middleware import AuthManager, User
 from helpers.document_loader import extract_text_from_file
 from helpers.word_writer import generate_word, upload_to_onelake
 from helpers.prompts import build_prompt
+from helpers.download_doc import OneLakeDownloader
 from app.config import settings
 
+downloader = OneLakeDownloader()
 cosmos_db = AIServices.AzureCosmosDB()
 auth_manager = AuthManager(settings.auth)
+
+
 chat_router = APIRouter(tags=["chat"])
+download_router = APIRouter(tags=["download"])
+
 
 class ChatJSONRequest(BaseModel):
     question: str
@@ -22,16 +30,16 @@ async def chat(
     question: str = Form(...),
     session_id: str | None = Form(default=None),
     files: list[UploadFile] | None = File(default=None),
-    user: User = Depends(auth_manager),              # ✅ user autenticado
+    user: User = Depends(auth_manager),           
 ):
     return await _process_chat(
-        question, files, session_id=session_id, user_id=user.email  # ✅ string
+        question, files, session_id=session_id, user_id=user.email 
     )
 
 @chat_router.post("/json")
 async def chat_json(
     payload: ChatJSONRequest,
-    user: User = Depends(auth_manager),              # ✅ user autenticado
+    user: User = Depends(auth_manager),              
 ):
     return await _process_chat(
         payload.question, files=None, session_id=payload.session_id, user_id=user.email
@@ -42,17 +50,32 @@ async def chat_upload(
     question: str = Form(...),
     session_id: str | None = Form(default=None),
     files: list[UploadFile] = File(...),
-    user: User = Depends(auth_manager),              # ✅ user autenticado
+    user: User = Depends(auth_manager),             
 ):
     return await _process_chat(
         question, files, session_id=session_id, user_id=user.email
     )
 
+@download_router.get("/chat/download")
+async def download_doc(
+    file: str = Query(...),
+    user: User = Depends(auth_manager),
+):
+    data = downloader.download_bytes(file)
+    filename = file.split("/")[-1] or "documento.docx"
+
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 async def _process_chat(
     question: str,
     files: list[UploadFile] | None,
     session_id: str | None,
-    user_id: str | None,                             # ✅ string, NO Depends
+    user_id: str | None,                            
 ):
     if not session_id:
         session_id = str(uuid.uuid4())
@@ -89,7 +112,7 @@ async def _process_chat(
 
         cosmos_db.save_answer_rag(
             session_id=session_id,
-            user_id=user_id,  # ✅ string
+            user_id=user_id,  
             user_question=question,
             ai_response=no_info_response["answer"],
             citations=[],
@@ -151,34 +174,45 @@ DOCUMENTOS CARGADOS POR EL USUARIO:
     LAKEHOUSE_NAME = "csj_documentos"
 
     onelake_path = upload_to_onelake(
-        workspace_name=WORKSPACE_NAME,
-        lakehouse_name=LAKEHOUSE_NAME,
-        folder=folder,
-        filename=filename,
-        content_bytes=docx_bytes
-    )
+    workspace_name=WORKSPACE_NAME,
+    lakehouse_name=LAKEHOUSE_NAME,
+    folder=folder,
+    filename=filename,
+    content_bytes=docx_bytes
+)
+
+    onelake_dfs_url = onelake_path
+    if not onelake_dfs_url.startswith("http"):
+        rel = onelake_dfs_url.lstrip("/")
+        if not rel.lower().startswith("files/"):
+            rel = f"Files/{rel}"
+        onelake_dfs_url = (
+            f"https://onelake.dfs.fabric.microsoft.com/"
+            f"{WORKSPACE_NAME}/{LAKEHOUSE_NAME}.Lakehouse/{rel}"
+        )
 
     cosmos_db.save_answer_rag(
         session_id=session_id,
-        user_id=user_id,  # ✅ string
+        user_id=user_id,
         user_question=question,
         ai_response=sections,
         citations=citations,
-        file_path=onelake_path,
+        file_path=onelake_dfs_url,  
         channel="web",
         extra={
             "uploaded_files": uploaded_files,
             "retrieved_ids": retrieved_ids,
-            "status": "ok"
+            "status": "ok",
         }
     )
 
     return {
         "answer": sections,
         "citations": citations,
-        "file": onelake_path,
+        "file": onelake_dfs_url,  
         "session_id": session_id,
     }
+
 
 
 # #===========================================================================================

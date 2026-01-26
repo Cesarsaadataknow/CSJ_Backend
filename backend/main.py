@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from helpers.chat import chat_router
+from helpers.chat import chat_router, download_router
 from api import auth
 
 app = FastAPI(
@@ -26,6 +26,13 @@ app.include_router(
     prefix="/api/auth", 
     tags=["auth"]
     )
+
+app.include_router(
+    download_router, 
+    prefix="/api",
+    )
+
+
 
 # from fastapi import FastAPI
 # from fastapi.middleware.cors import CORSMiddleware
