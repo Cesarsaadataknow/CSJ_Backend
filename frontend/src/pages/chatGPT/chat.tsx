@@ -269,7 +269,7 @@ export function Chat({
                 id: msg.id,
                 role: msg.role,
                 rate: msg?.rate || null,
-                linkFile: msg?.file || "",
+                linkFile: (msg as any)?.download_url || (msg as any)?.file || "",
               };
             }),
           };
@@ -502,9 +502,37 @@ export function Chat({
                         {msg.answer}
                       </ReactMarkdown>
                       {msg.linkFile ? (
-                        <Button onClick={() => console.log(msg.linkFile)}>
-                          Descargar .docx
-                        </Button>
+                      <Button
+                        onClick={async () => {
+                          const token = localStorage.getItem("access_token");
+                          if (!token) return;
+
+                          const url = `http://localhost:8000/api/chat/download?file=${encodeURIComponent(
+                            msg.linkFile
+                          )}`;
+
+                          const resp = await fetch(url, {
+                            headers: { Authorization: `Bearer ${token}` },
+                          });
+
+                          if (!resp.ok) {
+                            console.error("Download failed", resp.status);
+                            return;
+                          }
+
+                          const blob = await resp.blob();
+                          const a = document.createElement("a");
+                          const objectUrl = URL.createObjectURL(blob);
+                          a.href = objectUrl;
+                          a.download = msg.linkFile.split("/").pop() || "documento.docx";
+                          document.body.appendChild(a);
+                          a.click();
+                          a.remove();
+                          URL.revokeObjectURL(objectUrl);
+                        }}
+                      >
+                        Descargar .docx
+                      </Button>
                       ) : (
                         <></>
                       )}

@@ -136,7 +136,7 @@ const api = {
   async requestAttachment(attachment: any): Promise<any> {
     const token = localStorage.getItem("access_token");
     const response: ApiResponse = await apiClientMultipart.post(
-      "/chat/attachment",
+      "/chat/upload",
       attachment,
       {
         headers: {
