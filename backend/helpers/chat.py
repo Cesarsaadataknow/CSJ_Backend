@@ -85,7 +85,7 @@ async def _process_chat(
 
     if files:
         for file in files:
-            extracted = extract_text_from_file(file)  # SIN await
+            extracted = extract_text_from_file(file)
             uploaded_text += f"\n\n[DOCUMENTO: {file.filename}]\n{extracted}"
             uploaded_files.append(file.filename)
 
@@ -104,11 +104,7 @@ async def _process_chat(
         retrieved_ids.append(d.get("id"))
 
     if not index_context.strip() and not uploaded_text.strip():
-        no_info_response = {
-            "answer": "No se encontró información suficiente en el índice ni en los documentos cargados.",
-            "citations": [],
-            "session_id": session_id,
-        }
+        answer = "No se encontró información suficiente en el índice ni en los documentos cargados."
 
         cosmos_db.save_answer_rag(
             session_id=session_id,
@@ -118,14 +114,14 @@ async def _process_chat(
             citations=[],
             file_path=None,
             channel="web",
-            extra={
-                "uploaded_files": uploaded_files,
-                "retrieved_ids": retrieved_ids,
-                "status": "no_context"
-            }
+            extra={"status": "no_context"}
         )
 
-        return no_info_response
+        return {
+            "answer": answer,
+            "citations": [],
+            "session_id": session_id
+        }
 
     full_context = f"""
 DOCUMENTOS DEL ÍNDICE (JURISPRUDENCIA):
