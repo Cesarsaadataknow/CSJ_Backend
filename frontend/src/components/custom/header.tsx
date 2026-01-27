@@ -34,7 +34,7 @@ export const Header = ({ setIsOpenNav }: Props) => {
           <img src={"/logo.png"} alt="Logo" className="mx-auto h-20" />
         </Link>
         <div className="flex flex-row gap-2">
-          <LogoutButton />
+          {/* <LogoutButton /> */}
         </div>
       </header>
     </>
