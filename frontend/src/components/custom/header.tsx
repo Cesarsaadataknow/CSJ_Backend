@@ -1,5 +1,4 @@
 import { Dispatch } from "react";
-import { LogoutButton } from "./LogoutButton";
 import { Link } from "react-router-dom";
 
 type Props = {
