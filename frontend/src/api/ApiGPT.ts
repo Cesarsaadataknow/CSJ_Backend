@@ -22,21 +22,21 @@ const apiClientCommon: AxiosInstance = axios.create({
 apiClientCommon.interceptors.response.use(
   (response) => response,
   (error) => {
-    // const status = error.response?.status;
-    // const detail = error.response?.data?.detail;
+    const status = error.response?.status;
+    const detail = error.response?.data?.detail;
 
-    // if (
-    //   (status === 401 || status === 403) &&
-    //   (detail === "Token inválido" ||
-    //     detail === "Token expirado" ||
-    //     detail === "Not authenticated" ||
-    //     detail === "Claims inválidos")
-    // ) {
-    //   localStorage.removeItem("access_token");
-    //   window.location.href = `${BASE_URL}/auth/login`;
-    // }
+    if (
+      (status === 401 || status === 403) &&
+      (detail === "Token inválido" ||
+        detail === "Token expirado" ||
+        detail === "Not authenticated" ||
+        detail === "Claims inválidos")
+    ) {
+      localStorage.removeItem("access_token");
+      window.location.href = `${BASE_URL}/auth/login`;
+    }
 
-    // return Promise.reject(error);
+    return Promise.reject(error);
   },
 );
 

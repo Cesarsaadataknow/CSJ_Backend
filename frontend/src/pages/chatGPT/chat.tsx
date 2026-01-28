@@ -308,6 +308,7 @@ export function Chat({
                 id: msg.id,
                 role: msg.role,
                 rate: msg?.rate || null,
+                linkFile: (msg as any)?.download_url || (msg as any)?.file || "",
               };
             }),
           };
