@@ -34,7 +34,8 @@ interface ChatInputProps {
   setFiles: Dispatch<SetStateAction<File[]>>;
   handleStop: () => void;
 }
-const MAX_FILES = 10;
+const MAX_FILES = 5;
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 
 export const InputGPT = ({
   question,
@@ -138,21 +139,32 @@ export const InputGPT = ({
     setFiles([]);
   };
 
-  const addFiles = (incomming: File[]) => {
+  const addFiles = (incoming: File[]) => {
+    // Filtrar archivos mayores a 100MB
+    const validFiles = incoming.filter((file) => {
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`El archivo "${file.name}" supera los 100MB`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
     setFiles((prev) => {
       const amountMissing = MAX_FILES - prev.length;
+
       if (amountMissing <= 0) {
-        toast.error("Máximo 10 archivos permitidos");
+        toast.error(`Máximo ${MAX_FILES} archivos permitidos`);
         return prev;
       }
-      if (incomming.length > amountMissing) {
-        const filePermitted = incomming.slice(0, amountMissing);
-        toast.error("Máximo 10 archivos permitidos");
 
-        return [...prev, ...filePermitted];
+      if (validFiles.length > amountMissing) {
+        toast.error(`Máximo ${MAX_FILES} archivos permitidos`);
+        return [...prev, ...validFiles.slice(0, amountMissing)];
       }
 
-      return [...prev, ...incomming];
+      return [...prev, ...validFiles];
     });
   };
   return (
@@ -174,7 +186,7 @@ export const InputGPT = ({
           className={cx(
             "w-full min-h-[48px] max-h-[60dvh] resize-none text-base",
             "bg-muted border-0 focus:ring-0 focus:outline-none",
-            "px-3 py-3 leading-normal"
+            "px-3 py-3 leading-normal",
           )}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}

@@ -30,17 +30,22 @@ auth_manager = AuthManager(settings_auth)
 # -----------------------------------------------------------------------------
 @router.get("/login")
 def login(request: Request):
-    """
-    Endpoint que redirige al usuario al portal de autenticación de Microsoft.
-    Soporta parámetro 'prompt' para forzar reautenticación.
-    """
     prompt = request.query_params.get('prompt', None)
+
     if prompt:
-        redirect_uri = settings_auth.client_instance.get_authorization_request_url(settings_auth.scopes_api, prompt='login')
+        auth_url = settings_auth.client_instance.get_authorization_request_url(
+            scopes=settings_auth.scopes_api,
+            redirect_uri=settings_auth.redirect_uri,
+            prompt="login"
+        )
     else:
-        redirect_uri = settings_auth.client_instance.get_authorization_request_url(settings_auth.scopes_api)
-    return RedirectResponse(redirect_uri)
-# endregion
+        auth_url = settings_auth.client_instance.get_authorization_request_url(
+            scopes=settings_auth.scopes_api,
+            redirect_uri=settings_auth.redirect_uri
+        )
+
+    return RedirectResponse(auth_url)
+
 
 # -----------------------------------------------------------------------------
 # region           ENDPOINT: INTERCAMBIAR CÓDIGO POR TOKEN
