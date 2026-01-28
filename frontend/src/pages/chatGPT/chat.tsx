@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useScrollToBottom } from "@/components/custom/use-scroll-to-bottom";
 import {
   useState,
@@ -58,7 +57,7 @@ export function Chat({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [idChat, setIdChat] = useState<string>("");
+  const [idChat, setIdChat] = useState<string>(""); // puede ser temp-xxx o realSessionId
   const [instructions, setInstructions] = useState("");
   const [isLoadingChat, setIsLoadingChat] = useState<boolean>(false);
   const { id } = useParams<{ id?: string }>();
@@ -76,7 +75,7 @@ export function Chat({
   const updateMessageText = (messageId: string, text: string) => {
     const allMsgCopy = {
       ...allMsgs,
-      [idChat]: allMsgs[idChat].map((m: Message) =>
+      [idChat]: (allMsgs[idChat] || []).map((m: Message) =>
         m.id === messageId && m.role == "user" ? { ...m, answer: text } : m
       ),
     };
@@ -91,6 +90,29 @@ export function Chat({
     return answer;
   };
 
+  const migrateTempToReal = (tempId: string, realId: string, titleChat: string) => {
+    setAllMsg((prev) => {
+      const tempMsgs = prev[tempId] || [];
+      const { [tempId]: _ignored, ...rest } = prev;
+      return { ...rest, [realId]: tempMsgs };
+    });
+    setIdChat(realId);
+    setChats((prev) => {
+      const exists = prev.some((c) => c.chatId === realId);
+      if (exists) return prev;
+      return [
+        {
+          chatId: realId,
+          title: titleChat,
+          created_at: JSON.stringify(new Date()),
+        },
+        ...prev,
+      ];
+    });
+
+    navigate(`c/${realId}`);
+  };
+
   const handleSubmit = async ({
     text = "",
     idMessageCorrected = "",
@@ -103,33 +125,22 @@ export function Chat({
     files: File[] | null;
   }) => {
     if (isLoading) return;
+
     const messageId = idMessageCorrected || uuidv4();
     const DESIRED_LENGTH = 28;
     const messageText = text;
-    const isChat = chats.findIndex((chat) => chat.chatId == idChat);
+
     const idChatLocal = idChat;
+    const isTempChat = idChatLocal.startsWith("temp-");
+
+    const isChatIndex = chats.findIndex((chat) => chat.chatId == idChatLocal);
 
     const titleChat =
-      isChat >= 0
-        ? chats[isChat].title
+      isChatIndex >= 0
+        ? chats[isChatIndex].title
         : messageText.length > DESIRED_LENGTH
         ? messageText.substring(0, DESIRED_LENGTH)
         : messageText;
-
-    // Crear nueva sesión si no existe
-    // if (isChat < 0) {
-    //   try {
-    //     const res: any = await api.create_session(
-    //       user1?.userName || "",
-    //       titleChat
-    //     );
-    //     idChatLocal = res.session_id;
-    //     setIdChat(idChatLocal);
-    //   } catch (err: any) {
-    //     logout(err?.status || "");
-    //     return;
-    //   }
-    // }
 
     if (!is_regenerate) {
       pushMessage(
@@ -146,17 +157,19 @@ export function Chat({
     }
 
     setIsLoading(true);
+
     try {
       let assistantText = "";
       let linkFile = "";
+      let realSessionIdFromBackend: string | null = null;
+
       if (files?.length) {
         const formData = new FormData();
-        //formData.append("user_id", "user@test.com");
-        formData.append("session_id", idChatLocal);
         formData.append("question", messageText);
-        // formData.append("flag_modifier", String(is_regenerate));
-        // formData.append("model_name", modelSelect.toLowerCase());
-        // formData.append("search_tool", String(isSearch));
+
+        if (!isTempChat) {
+          formData.append("session_id", idChatLocal);
+        }
 
         files.forEach((fileObj: any) => {
           formData.append("files", fileObj);
@@ -164,15 +177,17 @@ export function Chat({
 
         const res = await api.requestAttachment(formData);
         assistantText = formatText(res.answer);
-        linkFile = res.file;
+        linkFile = res.file || "";
+        realSessionIdFromBackend = res.session_id || null;
       } else {
         const res = await api.requestChat({
           question: text,
-          session_id: idChatLocal,
-          //user_id: "user@test.com",
+          session_id: isTempChat ? null : idChatLocal,
         });
+
         assistantText = formatText(res.answer);
-        linkFile = res.file;
+        linkFile = res.file || "";
+        realSessionIdFromBackend = res.session_id || null;
       }
 
       if (isStop.current) {
@@ -191,8 +206,42 @@ export function Chat({
         },
         idChatLocal
       );
+
+      if (isTempChat && realSessionIdFromBackend) {
+        migrateTempToReal(idChatLocal, realSessionIdFromBackend, titleChat);
+      }
     } catch (error: any) {
-      logout(error?.response?.statusText || "");
+      const status = error?.response?.status;
+      const detail = error?.response?.data?.detail;
+
+      if (status === 409) {
+        const msg = detail || "Límite alcanzado.";
+        toast.error(msg);
+
+        pushMessage(
+          {
+            id: messageId,
+            answer: msg,
+            role: "assistant",
+            files: [],
+            rate: null,
+            linkFile: "",
+          },
+          idChatLocal
+        );
+
+        if (isTempChat) {
+          navigate("/");
+        }
+
+        return;
+      }
+
+      if (status === 401 || status === 403) {
+        logout(error?.response?.statusText || "");
+        return;
+      }
+
       pushMessage(
         {
           id: messageId,
@@ -205,17 +254,6 @@ export function Chat({
         idChatLocal
       );
     } finally {
-      if (newChat) {
-        setChats((prev) => [
-          {
-            chatId: idChatLocal,
-            title: titleChat,
-            created_at: JSON.stringify(new Date()),
-          },
-          ...prev,
-        ]);
-        navigate(`c/${idChatLocal}`);
-      }
       setIsLoading(false);
       setFiles([]);
     }
@@ -247,22 +285,23 @@ export function Chat({
     setEditingId(null);
   };
 
-  const getMessages = (id: string) => {
-    if (allMsgs[id]) return;
+  const getMessages = (sessionId: string) => {
+    if (allMsgs[sessionId]) return;
     setIsLoadingChat(true);
+
     api
-      .requestOneSession(id)
+      .requestOneSession(sessionId)
       .then((res: ConversationDetailResponse) => {
         const msgs: ConversationMessage[] = res.messages ?? [];
         if (msgs.length == 0) {
-          toast.error(`No existe la conversación ${id}`);
+          toast.error(`No existe la conversación ${sessionId}`);
           navigate("/");
           return;
         }
         setAllMsg((prev) => {
           return {
             ...prev,
-            [id]: (msgs ?? []).map((msg) => {
+            [sessionId]: (msgs ?? []).map((msg) => {
               return {
                 answer: msg.content,
                 files: msg.files,
@@ -274,13 +313,10 @@ export function Chat({
             }),
           };
         });
-        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-        res.messages.map;
       })
       .catch((err: any) => {
-        toast.error(`No existe la conversación ${id}`);
+        toast.error(`No existe la conversación ${sessionId}`);
         navigate("/");
-
         logout(err?.status || "");
       })
       .finally(() => setIsLoadingChat(false));
@@ -292,16 +328,15 @@ export function Chat({
       (msg) => msg.id == id && msg.role == "assistant"
     );
     const userMsg = messages[index - 1];
-    // Eliminar los mensajes desde la posición donde se seleccionó
+
     removeFromSpecificToEnd(index);
-    // Re-enviar el mismo mensaje del usuario
+
     handleSubmit({
       text: userMsg.answer,
       idMessageCorrected: userMsg.id,
       is_regenerate: true,
       files: null,
     });
-    return;
   };
 
   const handleEdit = (id: string, data: Record<string, Message[]>) => {
@@ -311,29 +346,30 @@ export function Chat({
     );
 
     const userMsg = messages[index];
-    // Eliminar los mensajes desde la posición donde se seleccionó
+
     removeFromSpecificToEnd(index + 1);
-    // Re-enviar el mismo mensaje del usuario
+
     handleSubmit({
       text: userMsg.answer,
       idMessageCorrected: userMsg.id,
       is_regenerate: true,
       files: null,
     });
-    return;
   };
 
   const removeFromSpecificToEnd = (i: number) => {
     setAllMsg((prev) => ({
       ...prev,
-      [idChat]: prev[idChat].slice(0, i),
+      [idChat]: (prev[idChat] || []).slice(0, i),
     }));
   };
 
   useEffect(() => {
-    setIdChat(id || uuidv4());
     if (id) {
+      setIdChat(id);
       getMessages(id);
+    } else {
+      setIdChat(`temp-${uuidv4()}`);
     }
   }, [id]);
 
@@ -348,32 +384,26 @@ export function Chat({
       rate: null,
       linkFile: "",
     });
-    //   try {
-    //   await api.requestVote(stop_msg_id, 2);
-    // } catch (error) {
-    //   toast.error("Error al detener la conversación")
-    // }
   };
 
   const handleVote = async (
     vote: number,
     value: number | null,
     idMessage: string,
-    idChat: string
+    sessionId: string
   ) => {
     if (!user) return;
     if (value === null) {
-      // Cambiar valor de rate
       setAllMsg((prev) => {
         return {
           ...prev,
-          [idChat]: prev[idChat].map((msg) =>
+          [sessionId]: (prev[sessionId] || []).map((msg) =>
             msg.id == idMessage ? { ...msg, rate: vote } : msg
           ),
         };
       });
       try {
-        await api.requestVote(idMessage, vote, idChat);
+        await api.requestVote(idMessage, vote, sessionId);
       } catch (err: any) {
         logout(err?.response?.statusText || "");
       }
@@ -384,6 +414,7 @@ export function Chat({
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [allMsgs?.[idChat], isLoadingChat]);
+
   return (
     <>
       <div
@@ -392,6 +423,7 @@ export function Chat({
       >
         <div className="flex-1 text-sm space-y-2 flex flex-col">
           {isLoadingChat && <ChatSkeleton />}
+
           {newChat && (
             <div className="flex flex-1 justify-center items-center p-2">
               <h1 className="text-3xl font-bold break-all text-center">
@@ -399,6 +431,7 @@ export function Chat({
               </h1>
             </div>
           )}
+
           {!isLoadingChat &&
             (allMsgs[idChat] ?? []).map((msg, i) => (
               <Fragment key={i}>
@@ -435,7 +468,7 @@ export function Chat({
                           : "opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
                       }`}
                     >
-                      {editingId === msg.id && !msg.files?.length ? (
+                      {editingId === msg.id && !(msg.files as any)?.length ? (
                         <>
                           <Button
                             variant={"outline"}
@@ -488,55 +521,53 @@ export function Chat({
                                 : false;
 
                             if (isBlock) {
-                              // BLOQUE DE CÓDIGO: <pre><code>...</code></pre>
                               return (
                                 <code className="text-white">{children}</code>
                               );
                             }
-
-                            // INLINE CODE (no tocar)
                             return <code>{children}</code>;
                           },
                         }}
                       >
                         {msg.answer}
                       </ReactMarkdown>
+
                       {msg.linkFile ? (
-                      <Button
-                        onClick={async () => {
-                          const token = localStorage.getItem("access_token");
-                          if (!token) return;
+                        <Button
+                          onClick={async () => {
+                            const token = localStorage.getItem("access_token");
+                            if (!token) return;
 
-                          const url = `http://localhost:8000/api/chat/download?file=${encodeURIComponent(
-                            msg.linkFile
-                          )}`;
+                            const url = `http://localhost:8000/api/chat/download?file=${encodeURIComponent(
+                              msg.linkFile
+                            )}`;
 
-                          const resp = await fetch(url, {
-                            headers: { Authorization: `Bearer ${token}` },
-                          });
+                            const resp = await fetch(url, {
+                              headers: { Authorization: `Bearer ${token}` },
+                            });
 
-                          if (!resp.ok) {
-                            console.error("Download failed", resp.status);
-                            return;
-                          }
+                            if (!resp.ok) {
+                              console.error("Download failed", resp.status);
+                              return;
+                            }
 
-                          const blob = await resp.blob();
-                          const a = document.createElement("a");
-                          const objectUrl = URL.createObjectURL(blob);
-                          a.href = objectUrl;
-                          a.download = msg.linkFile.split("/").pop() || "documento.docx";
-                          document.body.appendChild(a);
-                          a.click();
-                          a.remove();
-                          URL.revokeObjectURL(objectUrl);
-                        }}
-                      >
-                        Descargar .docx
-                      </Button>
-                      ) : (
-                        <></>
-                      )}
+                            const blob = await resp.blob();
+                            const a = document.createElement("a");
+                            const objectUrl = URL.createObjectURL(blob);
+                            a.href = objectUrl;
+                            a.download =
+                              msg.linkFile.split("/").pop() || "documento.docx";
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            URL.revokeObjectURL(objectUrl);
+                          }}
+                        >
+                          Descargar .docx
+                        </Button>
+                      ) : null}
                     </div>
+
                     <div className="flex flex-row">
                       <Button
                         variant="outline"
@@ -573,6 +604,7 @@ export function Chat({
                 )}
               </Fragment>
             ))}
+
           {isLoading && (
             <div className="text-center text-gray-500 italic">
               ⏳ Pensando...
@@ -606,43 +638,20 @@ export function Chat({
 
 const ChatSkeleton = () => (
   <div className="p-4 space-y-6">
-    {" "}
-    {/* Espacio entre los mensajes simulados */}
-    {/* Mensaje 1: IA (Izquierda) */}
     <div className="flex justify-start animate-pulse">
-      <div
-        className="w-full max-w-xl h-8 rounded-xl
-                   bg-gray-300 "
-      />
+      <div className="w-full max-w-xl h-8 rounded-xl bg-gray-300" />
     </div>
-    {/* Mensaje 2: IA (Izquierda, más corto) */}
     <div className="flex justify-start animate-pulse">
-      <div
-        className="w-3/4 max-w-md h-8 rounded-xl
-                   bg-gray-300 "
-      />
+      <div className="w-3/4 max-w-md h-8 rounded-xl bg-gray-300" />
     </div>
-    {/* Mensaje 3: Usuario (Derecha) */}
     <div className="flex justify-end animate-pulse">
-      <div
-        className="w-1/3 max-w-xs h-8 rounded-xl
-                   /* Usamos un color distintivo para simular el mensaje del usuario */
-                   bg-blue-200 dark:bg-gray-800"
-      />
+      <div className="w-1/3 max-w-xs h-8 rounded-xl bg-blue-200 dark:bg-gray-800" />
     </div>
-    {/* Mensaje 4: IA (Izquierda) */}
     <div className="flex justify-start animate-pulse">
-      <div
-        className="w-4/5 max-w-lg h-8 rounded-xl
-                   bg-gray-300 "
-      />
+      <div className="w-4/5 max-w-lg h-8 rounded-xl bg-gray-300" />
     </div>
-    {/* Mensaje 5: Usuario (Derecha, más largo) */}
     <div className="flex justify-end animate-pulse">
-      <div
-        className="w-2/5 max-w-sm h-8 rounded-xl
-                   bg-blue-200 dark:bg-gray-800"
-      />
+      <div className="w-2/5 max-w-sm h-8 rounded-xl bg-blue-200 dark:bg-gray-800" />
     </div>
   </div>
 );

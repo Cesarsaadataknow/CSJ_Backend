@@ -262,37 +262,23 @@ class AIServices:
                 logging.error(f"Error al eliminar sesión {session_id}: {e}")
                 raise
 
+        def count_uploaded_files(self, session_id: str) -> int:
+            """
+            Cuenta el total acumulado de archivos subidos en una sesión,
+            sumando ARRAY_LENGTH(extra.uploaded_files) por cada mensaje.
+            """
+            query = """
+            SELECT VALUE SUM(
+                IIF(IS_DEFINED(c.extra.uploaded_files), ARRAY_LENGTH(c.extra.uploaded_files), 0)
+            )
+            FROM c
+            WHERE c.id_session = @id_session
+            """
+            params = [{"name": "@id_session", "value": session_id}]
+            items = list(self.messages_container.query_items(
+                query=query,
+                parameters=params,
+                enable_cross_partition_query=True
+            ))
+            return int(items[0]) if items and items[0] is not None else 0
 
-
-# from openai import AzureOpenAI
-# from app.config import settings
-
-# class AIServices:
-
-#     _client = None
-#     _embedding_client = None
-
-#     @classmethod
-#     def chat_client(cls):
-#         if cls._client is None:
-#             cls._client = AzureOpenAI(
-#                 api_key=settings.ai_services.openai_key,
-#                 api_version="2024-02-01",
-#                 azure_endpoint=settings.ai_services.openai_endpoint
-#             )
-#         return cls._client
-
-#     @classmethod
-#     def embed_query(cls, text: str) -> list[float]:
-#         if cls._embedding_client is None:
-#             cls._embedding_client = AzureOpenAI(
-#                 api_key=settings.ai_services.openai_key,
-#                 api_version="2024-02-01",
-#                 azure_endpoint=settings.ai_services.openai_endpoint
-#             )
-
-#         emb = cls._embedding_client.embeddings.create(
-#             model=settings.ai_services.embedding_deployment,
-#             input=text
-#         )
-#         return emb.data[0].embedding
