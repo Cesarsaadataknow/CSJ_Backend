@@ -14,21 +14,21 @@ export default function UseLogout() {
     //   err.detail ??
     //   '';
 
-    if (
-      status === "Unauthorized" ||
-      status === "Token inválido" ||
-      status === "Token expirado" ||
-      status === "Not authenticated" || status === 401
-    ) {
-      toast.error(
-        "Tu sesión ha expirado. Por favor, inicia sesión nuevamente."
-      );
-      sessionStorage.clear();
+    // if (
+    //   status === "Unauthorized" ||
+    //   status === "Token inválido" ||
+    //   status === "Token expirado" ||
+    //   status === "Not authenticated" || status === 401
+    // ) {
+    //   toast.error(
+    //     "Tu sesión ha expirado. Por favor, inicia sesión nuevamente."
+    //   );
+    //   sessionStorage.clear();
 
-      instance.logoutRedirect({
-        onRedirectNavigate: () => false,
-      });
-    }
+    //   instance.logoutRedirect({
+    //     onRedirectNavigate: () => false,
+    //   });
+    // }
   };
 
   useEffect(() => {

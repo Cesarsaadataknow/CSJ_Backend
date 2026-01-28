@@ -16,9 +16,9 @@ export default function PrivateRoutes() {
   const [isLoadingChats, setIsLoadingChats] = useState(false);
 
   function getAllChats() {
-    if (!user) return;
+    // if (!user) return;
     setIsLoadingChats(true);
-    const token = sessionStorage.getItem("accessToken") || "";
+    const token = localStorage.getItem("access_token") || "";
     api
       .requestAllSession(token)
       .then((res: ConversationSessionResponse) => {
@@ -28,7 +28,7 @@ export default function PrivateRoutes() {
             return {
               ...chat,
               chatId: chat.id,
-              title: chat.conversation_name,
+              title: chat.name_session,
             };
           })
         );

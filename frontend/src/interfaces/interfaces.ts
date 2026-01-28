@@ -27,7 +27,7 @@ export type ChatInterface = {
 export interface ConversationSessionResponse {
   sessions: {
     id: string;
-    conversation_name: string;
+    name_session: string;
     created_at: string;
   }[];
 }
