@@ -43,8 +43,7 @@ apiClientCommon.interceptors.response.use(
 // Tipos
 interface ChatRequestData {
   question: string;
-  session_id: string;
-  //user_id: string;
+  session_id?: string;
 }
 
 interface VoteRequestData {
@@ -108,17 +107,16 @@ const api = {
   async requestChat({
     question,
     session_id,
-    //user_id,
   }: {
     question: string;
-    session_id: string;
-    //user_id: string;
+    session_id?: string | null;
   }): Promise<any> {
-    const requestData: ChatRequestData = {
-      question,
-      session_id,
-      //user_id,
-    };
+    const requestData: ChatRequestData = { question };
+
+    // Solo envía session_id si existe
+    if (session_id) {
+      requestData.session_id = session_id;
+    }
 
     const token = localStorage.getItem("access_token");
     const response: ApiResponse = await apiClientCommon.post(
@@ -131,7 +129,8 @@ const api = {
       },
     );
     return response.data;
-  },
+  }
+,
 
   async requestAttachment(attachment: any): Promise<any> {
     const token = localStorage.getItem("access_token");
