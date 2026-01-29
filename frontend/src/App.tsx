@@ -42,7 +42,12 @@ function App() {
       <BrowserRouter>
         <PrivateRoutes />
       </BrowserRouter>
-      <Toaster />
+      <Toaster
+  position="top-right"
+  expand
+  richColors
+  className="flex flex-col gap-3"
+/>
     </ThemeProvider>
   );
 }
