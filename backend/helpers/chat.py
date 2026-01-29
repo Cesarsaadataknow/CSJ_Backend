@@ -2,6 +2,7 @@
 # region                           IMPORTS
 # -----------------------------------------------------------------------------
 import io
+import os
 import uuid
 from fastapi import APIRouter, UploadFile, File, Form, Depends, Query, HTTPException, Path
 from fastapi.responses import StreamingResponse
@@ -65,6 +66,37 @@ async def chat_upload(
     files: list[UploadFile] = File(...),
     user: User = Depends(auth_manager),
 ):
+    #SOLO PDF y WORD
+    allowed_mime_types = {
+        "application/pdf",
+        "application/msword",  # .doc
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+    }
+    allowed_extensions = {".pdf", ".doc", ".docx"}
+
+    if not files:
+        raise HTTPException(status_code=400, detail="Se requiere al menos un archivo.")
+
+    for f in files:
+        filename = f.filename or ""
+        ext = os.path.splitext(filename.lower())[1]
+        ctype = (f.content_type or "").lower()
+
+        # 1) extensión
+        if ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=415,
+                detail=f"Archivo no permitido: {filename}. Solo se aceptan archivos PDF y Word (.doc, .docx).",
+            )
+
+        # 2) MIME (si viene informado)
+        # Nota: algunos clientes mandan application/octet-stream; si te pasa, te lo ajusto.
+        if ctype and ctype not in allowed_mime_types:
+            raise HTTPException(
+                status_code=415,
+                detail=f"Tipo de archivo no permitido: {filename} ({f.content_type}). Solo arcivos PDF y Word.",
+            )
+
     return await _process_chat(
         question,
         files=files,
@@ -194,7 +226,7 @@ async def delete_one_session(conversation_id: str = Path(...), user: User = Depe
 # -----------------------------------------------------------------------------
 
 MAX_CONVERSATIONS_PER_USER = 10
-MAX_FILES_PER_SESSION = 40
+MAX_FILES_PER_SESSION = 3
 
 async def _process_chat(
     question: str,
@@ -431,7 +463,7 @@ async def _process_chat(
                 status_code=409,
                 detail=(
                     f"Límite alcanzado: máximo {MAX_FILES_PER_SESSION} documentos por sesión. "
-                    f"Ya hay {existing_files} y estás intentando subir {len(files)}."
+                    f"Ya hay {existing_files} archivos adjuntados en esta conversacion."
                 ),
             )
 
