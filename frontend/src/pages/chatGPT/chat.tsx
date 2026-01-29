@@ -218,24 +218,16 @@ export function Chat({
         const msg = detail || "Límite alcanzado.";
         toast.error(msg);
 
-        pushMessage(
-          {
-            id: messageId,
-            answer: msg,
-            role: "assistant",
-            files: [],
-            rate: null,
-            linkFile: "",
-          },
-          idChatLocal
-        );
-
         if (isTempChat) {
           navigate("/");
         }
-
+        setAllMsg((prev) => ({
+          ...prev,
+          [idChatLocal]: (prev[idChatLocal] || []).filter((m) => m.id !== messageId),
+        }));
         return;
       }
+
 
       if (status === 401 || status === 403) {
         logout(error?.response?.statusText || "");

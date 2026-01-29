@@ -79,7 +79,7 @@ export const InputGPT = ({
       if (droppedFiles.length) {
         // setFiles((prev) => [...prev, ...droppedFiles]);
         addFiles(droppedFiles);
-        toast.success(`${droppedFiles.length} archivo(s) agregado(s)`);
+        //toast.success(`${droppedFiles.length} archivo(s) agregado(s)`);
       }
     };
 
@@ -109,7 +109,7 @@ export const InputGPT = ({
     if (pastedFiles.length) {
       addFiles(pastedFiles);
       // setFiles((prev) => [...prev, ...pastedFiles]);
-      toast.success(`${pastedFiles.length} archivo(s) pegado(s)`);
+      //toast.success(`${pastedFiles.length} archivo(s) pegado(s)`);
     }
   };
 
@@ -139,17 +139,32 @@ export const InputGPT = ({
     setFiles([]);
   };
 
-  const addFiles = (incoming: File[]) => {
-    // Filtrar archivos mayores a 100MB
-    const validFiles = incoming.filter((file) => {
-      if (file.size > MAX_FILE_SIZE) {
-        toast.error(`El archivo "${file.name}" supera los 100MB`);
-        return false;
-      }
-      return true;
-    });
+const ALLOWED_EXT = [".pdf", ".doc", ".docx"];
 
-    if (validFiles.length === 0) return;
+const isAllowedFile = (file: File) => {
+  const name = file.name.toLowerCase();
+  return ALLOWED_EXT.some((ext) => name.endsWith(ext));
+};
+
+  const addFiles = (incoming: File[]) => {
+    const rejectedByType = incoming.filter((f) => !isAllowedFile(f));
+    const allowedByType = incoming.filter((f) => isAllowedFile(f));
+    const rejectedBySize = allowedByType.filter((f) => f.size > MAX_FILE_SIZE);
+    const allowedBySize = allowedByType.filter((f) => f.size <= MAX_FILE_SIZE);
+
+    if (allowedBySize.length === 0) {
+      if (rejectedByType.length > 0) {
+        toast.error(
+          `No permitido: ${rejectedByType.map((f) => f.name).join(", ")}. Solo PDF y Word (.doc, .docx).`
+        );
+      }
+      if (rejectedBySize.length > 0) {
+        toast.error(
+          `Supera 100MB: ${rejectedBySize.map((f) => f.name).join(", ")}`
+        );
+      }
+      return;
+    }
 
     setFiles((prev) => {
       const amountMissing = MAX_FILES - prev.length;
@@ -159,14 +174,39 @@ export const InputGPT = ({
         return prev;
       }
 
-      if (validFiles.length > amountMissing) {
-        toast.error(`Máximo ${MAX_FILES} archivos permitidos`);
-        return [...prev, ...validFiles.slice(0, amountMissing)];
+      const toAdd = allowedBySize.slice(0, amountMissing);
+      const rejectedByMax = allowedBySize.slice(amountMissing);
+
+      // Mensajes de error (si hubo)
+      if (rejectedByType.length > 0) {
+        toast.error(
+          `No permitido: ${rejectedByType.map((f) => f.name).join(", ")}. Solo PDF y Word (.doc, .docx).`
+        );
+      }
+      if (rejectedBySize.length > 0) {
+        toast.error(
+          `Supera 100MB: ${rejectedBySize.map((f) => f.name).join(", ")}`
+        );
+      }
+      if (rejectedByMax.length > 0) {
+        toast.error(`Solo se pueden agregar ${amountMissing} archivo(s) más (límite: ${MAX_FILES}).`);
       }
 
-      return [...prev, ...validFiles];
+      if (toAdd.length > 0) {
+        const rejectedCount =
+          rejectedByType.length + rejectedBySize.length + rejectedByMax.length;
+
+        if (rejectedCount > 0) {
+          toast.success(`Se agregaron ${toAdd.length} archivo(s). (${rejectedCount} rechazado(s))`);
+        } else {
+          toast.success(`${toAdd.length} archivo(s) agregado(s)`);
+        }
+      }
+
+      return [...prev, ...toAdd];
     });
   };
+
   return (
     <div className="max-w-4xl w-full px-2 sticky bottom-0">
       <div
@@ -216,11 +256,14 @@ export const InputGPT = ({
               type="file"
               multiple
               hidden
+              accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               onChange={(e) => {
                 const newFiles = Array.from(e.target.files || []);
                 if (newFiles.length) addFiles(newFiles);
+                e.currentTarget.value = ""; 
               }}
             />
+
             {/* <Button
               variant="outline"
               className={
