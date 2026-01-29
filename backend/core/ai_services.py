@@ -1,10 +1,12 @@
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List
 from app.config import settings
 from openai import AzureOpenAI
+from langchain_openai import AzureChatOpenAI
 from azure.cosmos import CosmosClient, PartitionKey, exceptions
+from helpers.prompts import generate_session_title
 
 class AIServices:
 
@@ -37,9 +39,19 @@ class AIServices:
             self.database_name = settings.AZURE_COSMOSDB_NAME
             self.container_sessions_name = settings.AZURE_COSMOSDB_CONTAINER_NAME_SESSION
             self.container_messages_name = settings.AZURE_COSMOSDB_CONTAINER_NAME_MGS
-            
+
+            self.openaikey= settings.AZURE_OPENAI_KEY
+            self.endpointopenai=settings.AZURE_OPENAI_ENDPOINT
             self.modelo_ia = settings.AZURE_OPENAI_CHAT_DEPLOYMENT
             self.version_api_ia = settings.AZURE_OPENAI_OPENAI_VERSION
+            
+            self.llm = AzureChatOpenAI(
+                azure_deployment=self.modelo_ia,
+                api_version=self.version_api_ia,
+                azure_endpoint=self.endpointopenai,
+                api_key= self.openaikey,
+                temperature=0.2,
+            )
 
             if not self.endpoint or not self.key:
                 raise ValueError("Faltan AZURE_COSMOS_DB_ENDPOINT o AZURE_COSMOS_DB_KEY en variables de entorno.")
@@ -88,12 +100,12 @@ class AIServices:
             }
             """
             doc = {
-                "id": session_data["session_id"],          # PK /id
-                "_id": session_data["session_id"],         # opcional (por compatibilidad)
+                "id": session_data["session_id"],          
+                "_id": session_data["session_id"],         
                 "user_id": session_data.get("user_id"),
                 "modelo_ia": self.modelo_ia,
                 "version_api_ia": self.version_api_ia,
-                "message": [],                             # ids de mensajes
+                "message": [],                            
                 "fecha_creacion": AIServices._utc_iso(),
                 "updated_at": AIServices._utc_iso(),
                 "name_session": session_data.get("session_name", "Sesión"),
@@ -203,7 +215,7 @@ class AIServices:
                 session_data = {
                     "session_id": session_id,
                     "user_id": user_id,
-                    "session_name": "Sesión RAG",
+                    "session_name": generate_session_title(self.llm, user_question), 
                     "channel": channel
                 }
                 self.create_session(session_data)
@@ -281,4 +293,3 @@ class AIServices:
                 enable_cross_partition_query=True
             ))
             return int(items[0]) if items and items[0] is not None else 0
-
