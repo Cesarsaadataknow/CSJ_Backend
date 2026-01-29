@@ -43,11 +43,11 @@ function App() {
         <PrivateRoutes />
       </BrowserRouter>
       <Toaster
-  position="top-right"
-  expand
-  richColors
-  className="flex flex-col gap-3"
-/>
+        position="top-right"
+        expand
+        richColors
+        className="flex flex-col gap-3"
+      />
     </ThemeProvider>
   );
 }
