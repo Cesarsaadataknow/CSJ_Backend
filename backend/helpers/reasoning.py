@@ -1,3 +1,10 @@
+import json
+import re
+from dataclasses import dataclass
+from typing import Literal, Optional
+from langchain.schema import SystemMessage, HumanMessage, AIMessage
+from langchain.schema import HumanMessage
+
 def build_reasoning_prompt(context: str, question: str) -> str:
     return f"""
 Actúas como Magistrado de la Corte Suprema de Justicia.
