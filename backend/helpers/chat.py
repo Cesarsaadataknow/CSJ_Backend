@@ -226,7 +226,7 @@ async def delete_one_session(conversation_id: str = Path(...), user: User = Depe
 # -----------------------------------------------------------------------------
 
 MAX_CONVERSATIONS_PER_USER = 10
-MAX_FILES_PER_SESSION = 3
+MAX_FILES_PER_SESSION = 10
 
 async def _process_chat(
     question: str,

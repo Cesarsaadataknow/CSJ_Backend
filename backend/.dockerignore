@@ -43,4 +43,7 @@ venv/
 # Otros archivos opcionales
 coverage/
 htmlcov/
+output/
 __snapshots__/
+providencia.docx
+resolucion.docx

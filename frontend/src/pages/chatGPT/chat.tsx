@@ -530,7 +530,7 @@ export function Chat({
                             const token = localStorage.getItem("access_token");
                             if (!token) return;
 
-                            const url = `http://localhost:8000/api/chat/download?file=${encodeURIComponent(
+                            const url = `https://capp-resolucion-conflictos-compe.whitesand-8bead175.eastus2.azurecontainerapps.io/api/chat/download?file=${encodeURIComponent(
                               msg.linkFile
                             )}`;
 
@@ -599,7 +599,7 @@ export function Chat({
 
           {isLoading && (
             <div className="text-center text-gray-500 italic">
-              ⏳ Pensando...
+              Pensando...
             </div>
           )}
           <div ref={endRef} />

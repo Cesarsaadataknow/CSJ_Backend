@@ -1,6 +1,52 @@
 import re
 from langchain.schema import HumanMessage
 
+
+ROUTER_PROMPT = """\
+Eres un router para un asistente jurídico.
+Decide la ruta correcta para responder al usuario.
+
+Rutas:
+- CHAT: si la pregunta es social, seguimiento conversacional, pedir aclaraciones, saludo, o no requiere consultar documentos.
+- RAG: si la pregunta requiere sustentarse en jurisprudencia/documentos o el usuario pide análisis jurídico basado en fuentes.
+
+Devuelve SOLO JSON válido con este esquema:
+{{
+  "route": "CHAT" o "RAG",
+  "query": "si es RAG, reescribe una consulta corta y enfocada (máx 12 palabras); si es CHAT, deja vacío",
+  "reason": "una frase corta"
+}}
+
+Contexto de memoria (puede estar vacío):
+{memory}
+
+Pregunta:
+{question}
+"""
+
+FILE_INTAKE_PROMPT = """\
+Eres un asistente jurídico. El usuario adjuntó documentos.
+
+Tu tarea es decidir si la solicitud del usuario es suficientemente específica para actuar,
+o si debes pedir aclaración.
+
+Devuelve SOLO JSON válido con este esquema:
+{
+  "proceed": true/false,
+  "clarifying_question": "si proceed=false, pregunta concreta y corta",
+  "suggested_actions": ["3 a 6 opciones cortas en español, sin emojis, tipo botón"],
+  "reason": "frase corta"
+}
+
+Archivos:
+{filenames}
+
+Mensaje del usuario:
+{question}
+"""
+
+
+
 def build_prompt(section: str, context: str) -> str:
     return f"""
 Eres un magistrado auxiliar de la Corte Suprema de Justicia de Colombia,

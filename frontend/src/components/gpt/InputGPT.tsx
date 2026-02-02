@@ -152,6 +152,21 @@ const isAllowedFile = (file: File) => {
     const rejectedBySize = allowedByType.filter((f) => f.size > MAX_FILE_SIZE);
     const allowedBySize = allowedByType.filter((f) => f.size <= MAX_FILE_SIZE);
 
+    if (allowedBySize.length === 0) {
+      if (rejectedByType.length > 0) {
+        toast.error(
+          `No permitido: ${rejectedByType.map((f) => f.name).join(", ")}. Solo PDF y Word (.doc, .docx).`
+        );
+        return;
+      }
+      if (rejectedBySize.length > 0) {
+        toast.error(
+          `Supera 100MB: ${rejectedBySize.map((f) => f.name).join(", ")}`
+        );
+      }
+      return;
+    }
+    
     setFiles((prev) => {
       const amountMissing = MAX_FILES - prev.length;
 
@@ -193,20 +208,7 @@ const isAllowedFile = (file: File) => {
     }
   
   );
-  if (allowedBySize.length === 0) {
-      if (rejectedByType.length > 0) {
-        toast.error(
-          `No permitido: ${rejectedByType.map((f) => f.name).join(", ")}. Solo PDF y Word (.doc, .docx).`
-        );
-        return;
-      }
-      if (rejectedBySize.length > 0) {
-        toast.error(
-          `Supera 100MB: ${rejectedBySize.map((f) => f.name).join(", ")}`
-        );
-      }
-      return;
-    }
+  
   };
 
   return (

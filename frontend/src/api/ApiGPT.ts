@@ -2,7 +2,7 @@
 import axios, { AxiosInstance } from "axios";
 
 const BASE_URL =
-  "http://localhost:8000/api";
+  "https://capp-resolucion-conflictos-compe.whitesand-8bead175.eastus2.azurecontainerapps.io/api";
 
 const apiClientMultipart: AxiosInstance = axios.create({
   baseURL: BASE_URL,
