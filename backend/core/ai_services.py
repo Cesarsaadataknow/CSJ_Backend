@@ -293,3 +293,38 @@ class AIServices:
                 enable_cross_partition_query=True
             ))
             return int(items[0]) if items and items[0] is not None else 0
+        
+        def save_message_chat(
+            self,
+            session_id: str,
+            user_id: str,
+            user_question: str,
+            ia_response: str,
+            channel: str = "web",
+            extra: dict | None = None,
+        ):
+            # Si no existe la sesión, créala (con título GPT)
+            if not self.session_exists(session_id):
+                session_data = {
+                    "session_id": session_id,
+                    "user_id": user_id,
+                    "session_name": generate_session_title(self.llm, user_question),
+                    "channel": channel
+                }
+                self.create_session(session_data)
+
+            message_data = {
+                "message_id": str(uuid.uuid4()),
+                "session_id": session_id,
+                "user_question": user_question,
+                "ai_response": ia_response,
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "citations": [],
+                "file_path": None,
+                "extra": extra or {},
+                "channel": channel,
+            }
+
+            self.save_message(message_data)
+            self.touch_session(session_id)

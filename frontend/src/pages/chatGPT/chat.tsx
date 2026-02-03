@@ -530,9 +530,13 @@ export function Chat({
                             const token = localStorage.getItem("access_token");
                             if (!token) return;
 
-                            const url = `https://capp-resolucion-conflictos-compe.whitesand-8bead175.eastus2.azurecontainerapps.io/api/chat/download?file=${encodeURIComponent(
+                            const url = `http://localhost:8000/api/chat/download?file=${encodeURIComponent(
                               msg.linkFile
                             )}`;
+
+                            // const url = `https://capp-resolucion-conflictos-compe.whitesand-8bead175.eastus2.azurecontainerapps.io/api/chat/download?file=${encodeURIComponent(
+                            //   msg.linkFile
+                            // )}`;
 
                             const resp = await fetch(url, {
                               headers: { Authorization: `Bearer ${token}` },
