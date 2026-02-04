@@ -73,7 +73,7 @@ class Orchestrator:
         if not session_id:
             session_id = str(uuid.uuid4())
 
-        # 👉 Vincular contexto (ESTO ES CLAVE)
+        # 👉 Vincular contexto
         self.tools_class.bind_context(
             session_id=session_id,
             user_id=user_id,
@@ -99,6 +99,41 @@ Si hay documentos, debes analizarlos usando tool_rag.
 <usuario>: {mensaje_usuario}
 <asistente>:
 """
+        
+        #----------------------------
+        # Validación usuario
+        # ----------------------------
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Usuario no autenticado.")
+
+        # ----------------------------
+        # Límite 10 conversaciones
+        # ----------------------------
+        if not session_id:
+            user_sessions = self.cosmosdb.get_user_sessions(user_id)
+            if len(user_sessions) >= MAX_CONVERSATIONS_PER_USER:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Límite alcanzado: máximo {MAX_CONVERSATIONS_PER_USER} conversaciones por usuario. "
+                        "Por favor elimina una conversacion del panel izquierdo para crear una nueva."
+                    ),
+                )
+            session_id = str(uuid.uuid4())
+
+        # ----------------------------
+        # Límite 40 documentos por sesión
+        # ----------------------------
+        if files:
+            existing_files = self.cosmosdb.count_uploaded_files(session_id)
+            if existing_files + len(files) > MAX_FILES_PER_SESSION:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Límite alcanzado: máximo {MAX_FILES_PER_SESSION} documentos por sesión. "
+                        f"Ya hay {existing_files} y estás intentando subir {len(files)}."
+                    ),
+                )
 
         # ---------------------------------------------------------------------
         # EJECUCIÓN AGENTE

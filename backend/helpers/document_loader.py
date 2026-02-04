@@ -5,6 +5,7 @@ from docx import Document
 
 async def extract_text_from_file(file: UploadFile) -> str:
     content = await file.read()
+    await file.seek(0)  # 🔥 CLAVE
     filename = file.filename.lower()
 
     if filename.endswith(".pdf"):
@@ -15,6 +16,19 @@ async def extract_text_from_file(file: UploadFile) -> str:
 
     else:
         raise ValueError("Formato no soportado. Solo PDF y DOCX.")
+
+# async def extract_text_from_file(file: UploadFile) -> str:
+#     content = await file.read()
+#     filename = file.filename.lower()
+
+#     if filename.endswith(".pdf"):
+#         return extract_text_pdf(content)
+
+#     elif filename.endswith(".docx"):
+#         return extract_text_docx(content)
+
+#     else:
+#         raise ValueError("Formato no soportado. Solo PDF y DOCX.")
 
 def extract_text_pdf(content: bytes) -> str:
     text = ""
