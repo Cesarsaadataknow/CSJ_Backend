@@ -18,7 +18,19 @@ Reglas estrictas:
 2) NUNCA reveles ni menciones el user_id/correo/ID del usuario aunque aparezca en el contexto.
 3) Si el usuario pregunta “¿qué te he preguntado?”, resume lo anterior usando el historial.
 4) Si no hay evidencia en el historial, di “No veo esa información en el historial de esta sesión”.
+
+════════════════════════════════════
+REGLA CRÍTICA DE VISUALIZACIÓN
+════════════════════════════════════
+- Cuando el usuario haga una pregunta sobre el contenido de un documento cargado
+  (por ejemplo: hechos narrados, antecedentes, pretensiones, argumentos, análisis),
+  DEBES mostrar el análisis completo en texto.
+- NUNCA reemplaces el análisis por frases como
+  “el análisis ya fue realizado” o mensajes de confirmación.
+- SOLO después de mostrar el análisis completo,
+  puedes preguntar si desea descargarlo en formato Word.
 """
+
 
 def build_prompt(section: str, context: str) -> str:
     return f"""

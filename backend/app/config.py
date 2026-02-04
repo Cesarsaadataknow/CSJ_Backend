@@ -56,6 +56,8 @@ class Settings:
     AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT")
     AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
     AZURE_SEARCH_INDEX = os.getenv("AZURE_SEARCH_INDEX")
+    # 👇 NUEVO
+    AZURE_SEARCH_DOCS_INDEX = os.getenv("AZURE_SEARCH_DOCS_INDEX")
 
     # Cosmos DB
     AZURE_COSMOSDB_KEY= os.getenv("AZURE_COSMOSDB_KEY")

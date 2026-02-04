@@ -38,7 +38,7 @@ class Tools:
         session_id: Optional[str],
         user_id: Optional[str],
         files: Optional[List[UploadFile]],
-    ) -> None:
+    ):
         self._session_id = session_id
         self._user_id = user_id
         self._files = files
@@ -54,36 +54,24 @@ class Tools:
             text,
             flags=re.DOTALL | re.IGNORECASE,
         )
-        if m:
-            return (m.group(1) or "").strip()
-        return text.strip()
+        return (m.group(1) if m else text).strip()
 
     def _decide_mode(self, question: str) -> str:
-        """
-        Regla segura:
-        - answer por defecto
-        - providencia SOLO si el usuario lo pide explícitamente
-        """
         q = (question or "").lower()
-
-        explicit_doc_requests = [
-            "genera el documento",
-            "generar el documento",
-            "crear el documento",
-            "descargar el documento",
-            "generar word",
-            "descargar word",
-            "generar providencia",
-            "haz la providencia",
-        ]
-
-        if any(k in q for k in explicit_doc_requests):
+        if any(
+            k in q
+            for k in [
+                "generar documento",
+                "descargar documento",
+                "generar word",
+                "providencia",
+            ]
+        ):
             return "providencia"
-
         return "answer"
 
     # ------------------------------------------------------------------
-    # TOOL RAG
+    # TOOL RAG (CLAVE)
     # ------------------------------------------------------------------
     def tool_rag(self, query: str) -> str:
         if not self._session_id or not self._user_id:
@@ -92,35 +80,22 @@ class Tools:
         question = self._extract_last_user_question(query)
         mode = self._decide_mode(question)
 
-        # 🔥 FIX CRÍTICO: no usar asyncio.run si ya hay loop
-        try:
-            loop = asyncio.get_running_loop()
-            result = loop.run_until_complete(
-                _process_chat(
-                    question=question,
-                    files=self._files,
-                    session_id=self._session_id,
-                    user_id=self._user_id,
-                    mode=mode,
-                )
+        result = asyncio.run(
+            _process_chat(
+                question=question,
+                files=self._files,
+                session_id=self._session_id,
+                user_id=self._user_id,
+                mode=mode,
             )
-        except RuntimeError:
-            result = asyncio.run(
-                _process_chat(
-                    question=question,
-                    files=self._files,
-                    session_id=self._session_id,
-                    user_id=self._user_id,
-                    mode=mode,
-                )
-            )
+        )
 
         answer = result.get("answer")
 
         if isinstance(answer, dict):
             return json.dumps(answer, ensure_ascii=False, indent=2)
 
-        return str(answer or "").strip()
+        return answer or ""
 
     # ------------------------------------------------------------------
     # TOOL CONVERSACIONAL
@@ -129,12 +104,13 @@ class Tools:
         if self._files:
             filenames = ", ".join(f.filename for f in self._files if f.filename)
             return (
-                f"He recibido los siguientes documentos: {filenames}.\n\n"
-                "Indícame qué análisis jurídico deseas realizar con ellos."
+                f"He recibido los documentos: {filenames}.\n\n"
+                "Indícame qué análisis jurídico deseas realizar."
             )
 
         response = self.chat.invoke([HumanMessage(content=prompt)])
         return response.content.strip()
+
 
 
 # # -----------------------------------------------------------------------------

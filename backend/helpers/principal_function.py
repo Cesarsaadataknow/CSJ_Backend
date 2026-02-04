@@ -2,8 +2,10 @@
 
 from fastapi import UploadFile, HTTPException
 from typing import List, Optional
+from datetime import datetime
+import uuid
 
-from core.retrieval import retrieve_from_index
+from core.retrieval_docs import retrieve_docs
 from core.ai_services import AIServices
 from helpers.document_loader import extract_text_from_file
 from helpers.prompts import build_prompt
@@ -24,34 +26,16 @@ async def _process_chat(
     mode: str = "answer",
 ):
     # -------------------------------------------------------------------------
-    # Validaciones básicas
+    # Validaciones
     # -------------------------------------------------------------------------
     if not user_id:
         raise HTTPException(status_code=401, detail="Usuario no autenticado.")
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id es requerido.")
 
-    question = (question or "").strip()
-
-    # -------------------------------------------------------------------------
-    # 🔒 FIX CRÍTICO: proteger el modo (BUG PRINCIPAL)
-    # -------------------------------------------------------------------------
-    lower_q = question.lower()
+    question = (question or "").strip().lower()
 
     if mode not in ("answer", "providencia"):
-        mode = "answer"
-
-    # Solo permitir providencia si el usuario LO PIDE
-    if mode == "providencia" and not any(
-        k in lower_q for k in [
-            "generar",
-            "documento",
-            "word",
-            "docx",
-            "descargar",
-            "providencia",
-        ]
-    ):
         mode = "answer"
 
     # -------------------------------------------------------------------------
@@ -62,23 +46,15 @@ async def _process_chat(
 
     if files:
         for file in files:
-            try:
-                extracted_text = await extract_text_from_file(file)
-                if extracted_text.strip():
-                    uploaded_text += (
-                        f"\n\n[DOCUMENTO: {file.filename}]\n{extracted_text}"
-                    )
-                    uploaded_files.append(file.filename)
-            except Exception as e:
-                uploaded_text += (
-                    f"\n\n[DOCUMENTO: {file.filename}] "
-                    f"(No se pudo leer el contenido: {e})"
-                )
+            extracted_text = await extract_text_from_file(file)
+            if extracted_text.strip():
+                uploaded_text += f"\n\n[DOCUMENTO: {file.filename}]\n{extracted_text}"
+                uploaded_files.append(file.filename)
 
     # -------------------------------------------------------------------------
-    # Recuperación desde índice (RAG)
+    # Recuperación RAG
     # -------------------------------------------------------------------------
-    retrieved_docs = retrieve_from_index(question)
+    retrieved_docs = retrieve_docs(question)
 
     index_context = ""
     citations = []
@@ -93,12 +69,12 @@ async def _process_chat(
         retrieved_ids.append(d.get("id"))
 
     # -------------------------------------------------------------------------
-    # Si no hay contexto en absoluto
+    # Sin contexto
     # -------------------------------------------------------------------------
     if not index_context.strip() and not uploaded_text.strip():
         answer = (
-            "No se encontró información suficiente ni en el índice jurisprudencial "
-            "ni en los documentos cargados para responder la consulta."
+            "No se encontró información suficiente en el índice ni en los documentos "
+            "cargados para responder la consulta."
         )
 
         cosmos_db.save_answer_rag(
@@ -109,7 +85,7 @@ async def _process_chat(
             citations=[],
             file_path=None,
             channel="web",
-            extra={"status": "no_context", "uploaded_files": uploaded_files},
+            extra={"status": "no_context"},
         )
 
         return {
@@ -119,7 +95,7 @@ async def _process_chat(
         }
 
     # -------------------------------------------------------------------------
-    # Construir contexto completo
+    # Contexto completo
     # -------------------------------------------------------------------------
     full_context = f"""
 DOCUMENTOS DEL ÍNDICE (JURISPRUDENCIA):
@@ -131,15 +107,14 @@ DOCUMENTOS CARGADOS POR EL USUARIO:
 
     system_prompt = (
         "Eres un asistente jurídico experto en resolución de conflictos de competencia. "
-        "Responde exclusivamente con base en los documentos proporcionados. "
-        "Usa lenguaje jurídico formal, claro y preciso. "
+        "Responde únicamente con base en los documentos proporcionados. "
         "No inventes información."
     )
 
     client = AIServices.chat_client()
 
     # -------------------------------------------------------------------------
-    # MODO RESPUESTA NORMAL (ANSWER)
+    # MODO RESPUESTA NORMAL
     # -------------------------------------------------------------------------
     if mode == "answer":
         completion = client.chat.completions.create(
@@ -149,10 +124,7 @@ DOCUMENTOS CARGADOS POR EL USUARIO:
                 {
                     "role": "user",
                     "content": f"""
-Responde de forma directa y concreta a la siguiente pregunta,
-usando EXCLUSIVAMENTE la información del contexto.
-
-Si el contexto no permite responder, dilo expresamente.
+Responde de forma clara y estructurada usando EXCLUSIVAMENTE el contexto.
 
 CONTEXTO:
 {full_context}
@@ -175,11 +147,7 @@ PREGUNTA:
             citations=citations,
             file_path=None,
             channel="web",
-            extra={
-                "uploaded_files": uploaded_files,
-                "retrieved_ids": retrieved_ids,
-                "status": "ok_answer",
-            },
+            extra={"status": "ok_answer"},
         )
 
         return {
@@ -189,7 +157,7 @@ PREGUNTA:
         }
 
     # -------------------------------------------------------------------------
-    # MODO PROVIDENCIA (GENERAR WORD)
+    # MODO PROVIDENCIA
     # -------------------------------------------------------------------------
     sections = {}
     section_map = [
@@ -210,6 +178,21 @@ PREGUNTA:
         )
         sections[key] = completion.choices[0].message.content.strip()
 
+    # Texto final para frontend
+    final_text = f"""
+I. ANTECEDENTES
+{sections['antecedentes']}
+
+II. CONSIDERACIONES
+{sections['consideraciones']}
+
+III. PROBLEMA JURÍDICO
+{sections['problema']}
+
+IV. DECISIÓN
+{sections['decision']}
+""".strip()
+
     # -------------------------------------------------------------------------
     # Generar Word
     # -------------------------------------------------------------------------
@@ -218,45 +201,31 @@ PREGUNTA:
         content=sections,
     )
 
-    folder = "documentos_generados"
     filename = f"providencia_{session_id}.docx"
 
-    WORKSPACE_NAME = "WS_Resolucion_Conflictos_Competencias_Administrativas"
-    LAKEHOUSE_NAME = "csj_documentos"
-
     onelake_path = upload_to_onelake(
-        workspace_name=WORKSPACE_NAME,
-        lakehouse_name=LAKEHOUSE_NAME,
-        folder=folder,
+        workspace_name="WS_Resolucion_Conflictos_Competencias_Administrativas",
+        lakehouse_name="csj_documentos",
+        folder="documentos_generados",
         filename=filename,
         content_bytes=docx_bytes,
-    )
-
-    dfs_url = (
-        f"https://onelake.dfs.fabric.microsoft.com/"
-        f"{WORKSPACE_NAME}/{LAKEHOUSE_NAME}.Lakehouse/Files/"
-        f"{folder}/{filename}"
     )
 
     cosmos_db.save_answer_rag(
         session_id=session_id,
         user_id=user_id,
         user_question=question,
-        ai_response=sections,
+        ai_response=final_text,
         citations=citations,
-        file_path=dfs_url,
+        file_path=onelake_path,
         channel="web",
-        extra={
-            "uploaded_files": uploaded_files,
-            "retrieved_ids": retrieved_ids,
-            "status": "ok_document",
-        },
+        extra={"status": "ok_document"},
     )
 
     return {
-        "answer": sections,
+        "answer": final_text,
         "citations": citations,
-        "file": dfs_url,
+        "file": onelake_path,
         "session_id": session_id,
     }
 
