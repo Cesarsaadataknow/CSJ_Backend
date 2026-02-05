@@ -66,6 +66,10 @@ class Settings:
     AZURE_COSMOSDB_CONTAINER_NAME_SESSION= os.getenv("AZURE_COSMOSDB_CONTAINER_NAME_SESSION")
     AZURE_COSMOSDB_CONTAINER_NAME_MGS= os.getenv("AZURE_COSMOSDB_CONTAINER_NAME_MGS")
 
+    # Document Intelligence
+    AZURE_FORM_RECOGNIZER_ENDPOINT=os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT")
+    AZURE_FORM_RECOGNIZER_API_KEY=os.getenv("AZURE_FORM_RECOGNIZER_API_KEY")
+
 
     def validate(self):
         missing = [k for k, v in self.__dict__.items() if v is None]

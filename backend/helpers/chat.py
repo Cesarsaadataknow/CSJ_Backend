@@ -37,12 +37,12 @@ download_router = APIRouter(tags=["download"])
 # -----------------------------------------------------------------------------
 @chat_router.post("/json")
 async def chat_json(payload: ChatJSONRequest, user: User = Depends(auth_manager)):
-    result = await asyncio.to_thread(
-        orchestrator.ejecutar_agente,
-        payload.question,
-        user.email,
-        payload.session_id,
-        None,
+    # CAMBIO: Llamada directa con await porque ejecutar_agente ahora es async
+    result = await orchestrator.ejecutar_agente(
+        mensaje_usuario=payload.question,
+        user_id=user.email,
+        session_id=payload.session_id,
+        files=None,
     )
     return {"answer": result["reply_text"], "session_id": result["session_id"]}
 # endregion
@@ -57,6 +57,7 @@ async def chat_upload(
     files: list[UploadFile] = File(...),
     user: User = Depends(auth_manager),
 ):
+    # --- Validaciones de MimeType (Se mantienen igual) ---
     allowed_mime_types = {
         "application/pdf",
         "application/msword",
@@ -81,17 +82,21 @@ async def chat_upload(
         if ctype and ctype not in allowed_mime_types:
             raise HTTPException(
                 status_code=415,
-                detail=f"Tipo de archivo no permitido: {filename} ({f.content_type}). Solo arcivos PDF y Word.",
+                detail=f"Tipo de archivo no permitido: {filename} ({f.content_type}). Solo archivos PDF y Word.",
             )
 
     session_id = session_id or str(uuid.uuid4())
 
-    result = await asyncio.to_thread(
-        orchestrator.ejecutar_agente,
-        question,
-        user.email,
-        session_id,
-        files,
+    # --- CAMBIO PRINCIPAL AQUÍ ---
+    # Eliminamos asyncio.to_thread.
+    # Pasamos los objetos 'files' (UploadFile) directamente.
+    # El orchestrator se encargará de hacer 'await file.read()' internamente.
+    
+    result = await orchestrator.ejecutar_agente(
+        mensaje_usuario=question,
+        user_id=user.email,
+        session_id=session_id,
+        files=files,
     )
     
     return {"answer": result["reply_text"], "session_id": result["session_id"]}
