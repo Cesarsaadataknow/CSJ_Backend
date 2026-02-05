@@ -39,25 +39,112 @@ class AzureSearchIndexer:
 
             if last_err:
                 raise last_err
-
-
-    def search_vectors(self, query_vector: list[float], user_id: str, session_id: str, top_k: int = 6) -> list[dict]:
+            
+    def list_session_files(self, user_id: str, session_id: str, top: int = 2000) -> list[dict]:
+        """
+        Devuelve lista única de archivos dentro de una sesión: [{file_id, file_name}, ...]
+        """
         filter_expr = f"user_id eq '{user_id}' and session_id eq '{session_id}'"
 
-        vector_query = VectorizedQuery(
+        results = self.client.search(
+            search_text="*",
+            filter=filter_expr,
+            top=top,
+            select=["file_id", "file_name"]
+        )
+
+        seen = set()
+        files = []
+        for r in results:
+            fid = r.get("file_id")
+            fname = r.get("file_name")
+            if not fid:
+                continue
+            key = (fid, fname)
+            if key in seen:
+                continue
+            seen.add(key)
+            files.append({"file_id": fid, "file_name": fname})
+
+        return files
+    
+    def hybrid_search_by_file(
+        self,
+        question: str,
+        query_vector: list[float],
+        user_id: str,
+        session_id: str,
+        file_id: str,
+        top_k: int = 4
+    ) -> list[dict]:
+
+        filter_expr = (
+            f"user_id eq '{user_id}' and session_id eq '{session_id}' and file_id eq '{file_id}'"
+        )
+
+        vq = VectorizedQuery(
             vector=query_vector,
             k_nearest_neighbors=top_k,
-            fields="content_vector"
+            fields="content_vector",
         )
 
         results = self.client.search(
-            search_text=None,  
+            search_text=question,
+            search_mode="any",
             filter=filter_expr,
             top=top_k,
-            vector_queries=[vector_query],
+            vector_queries=[vq],
             select=["content", "file_name", "chunk_id", "file_id"]
         )
 
+        return [r for r in results]
+
+    def hybrid_search(self, question: str, query_vector: list[float], user_id: str, session_id: str, top_k: int = 6) -> list[dict]:
+        filter_expr = f"user_id eq '{user_id}' and session_id eq '{session_id}'"
+
+        vq = VectorizedQuery(
+            vector=query_vector,
+            k_nearest_neighbors=top_k,
+            fields="content_vector",
+        )
+
+        results = self.client.search(
+            search_text=question,     
+            filter=filter_expr,
+            top=top_k,
+            vector_queries=[vq],     
+            select=["content", "file_name", "chunk_id", "file_id"]
+        )
+
+        return [r for r in results]
+    
+
+class FabricSearchIndexer:
+    def __init__(self) -> None:
+        self.client = SearchClient(
+            endpoint=settings.AZURE_SEARCH_ENDPOINT,
+            index_name=settings.AZURE_SEARCH_INDEX_FABRIC,
+            credential=AzureKeyCredential(settings.AZURE_SEARCH_KEY),
+        )
+
+    def hybrid_search(self, question: str, query_vector: list[float], top_k: int = 10) -> list[dict]:
+        vq = VectorizedQuery(
+            vector=query_vector,
+            k_nearest_neighbors=top_k,
+            fields="texto_vector",
+        )
+
+        results = self.client.search(
+            search_text=question,
+            search_mode="any",
+            top=top_k,
+            vector_queries=[vq],
+            select=[
+                "id", "texto", "chunk_order",
+                "tipo_documento", "NaturalezaProceso", "claseProceso",
+                "ACTOR", "DEMANDADO", "DECISION", "ProblemaJuridico"
+            ],
+        )
         return [r for r in results]
 
 
