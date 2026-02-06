@@ -422,7 +422,7 @@ export function Chat({
           {newChat && (
             <div className="flex flex-1 justify-center items-center p-2">
               <h1 className="text-3xl font-bold break-all text-center">
-                ¡Hola, <span className="font-normal">{"Test"}</span>!
+                ¡Listo, cuando tú lo estés.!
               </h1>
             </div>
           )}
