@@ -55,8 +55,26 @@ async def ask(
         session_id=session_id, 
         files=None,
     )
-    return res
-
+    reply_text = res.get("reply_text", "")
+    try:
+        payload = json.loads(reply_text)
+        if isinstance(payload, dict) and payload.get("doc_id"):
+            return {
+                "answer": payload.get("message") or "Documento generado.",
+                "session_id": res.get("session_id"),
+                "doc_id": payload.get("doc_id"),
+                "download_url": payload.get("download_url"),
+                "file_name": payload.get("file_name"),
+                "ok": payload.get("ok", True),
+            }
+    except Exception:
+        pass
+    return {
+        "answer": reply_text,
+        "session_id": res.get("session_id"),
+        "doc_id": payload.get("doc_id"),
+    }
+# endregion
 
 @chat_router.post("/upload")
 async def upload(
