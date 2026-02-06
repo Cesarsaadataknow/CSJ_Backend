@@ -117,6 +117,11 @@ export function Chat({
     navigate(`c/${realId}`);
   };
 
+  function getDocId(answer: string): string | null {
+    const match = answer.match(/doc_[a-zA-Z0-9]+/);
+    return match ? match[0] : null;
+  }
+
   const handleSubmit = async ({
     text = "",
     idMessageCorrected = "",
@@ -178,7 +183,7 @@ export function Chat({
 
         const res = await api.requestAttachment(formData);
         assistantText = formatText(res.reply_text);
-        linkFile = res.file || "";
+        linkFile = getDocId(res.reply_text) || "";
         realSessionIdFromBackend = res.session_id || null;
       } else {
         const res = await api.requestChat({
@@ -186,8 +191,8 @@ export function Chat({
           session_id: isTempChat ? null : idChatLocal,
         });
 
-        assistantText = formatText(res.reply_text);
-        linkFile = res.file || "";
+        assistantText = formatText(res.answer);
+        linkFile = getDocId(res.answer) || "";
         realSessionIdFromBackend = res.session_id || null;
       }
 
@@ -527,15 +532,13 @@ export function Chat({
                         {msg.answer}
                       </ReactMarkdown>
 
-                      {msg.linkFile ? (
+                      {msg.linkFile.length ? (
                         <Button
                           onClick={async () => {
                             const token = localStorage.getItem("access_token");
                             if (!token) return;
 
-                            const url = `http://localhost:8000/api/chat/download?file=${encodeURIComponent(
-                              msg.linkFile,
-                            )}`;
+                            const url = `http://localhost:8000/api/download/doc/${msg.linkFile}`;
 
                             // const url = `https://capp-resolucion-conflictos-compe.whitesand-8bead175.eastus2.azurecontainerapps.io/api/chat/download?file=${encodeURIComponent(
                             //   msg.linkFile
