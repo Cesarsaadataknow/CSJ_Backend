@@ -76,7 +76,7 @@ export function Chat({
     const allMsgCopy = {
       ...allMsgs,
       [idChat]: (allMsgs[idChat] || []).map((m: Message) =>
-        m.id === messageId && m.role == "user" ? { ...m, answer: text } : m
+        m.id === messageId && m.role == "user" ? { ...m, answer: text } : m,
       ),
     };
     setAllMsg(allMsgCopy);
@@ -90,7 +90,11 @@ export function Chat({
     return answer;
   };
 
-  const migrateTempToReal = (tempId: string, realId: string, titleChat: string) => {
+  const migrateTempToReal = (
+    tempId: string,
+    realId: string,
+    titleChat: string,
+  ) => {
     setAllMsg((prev) => {
       const tempMsgs = prev[tempId] || [];
       const { [tempId]: _ignored, ...rest } = prev;
@@ -139,8 +143,8 @@ export function Chat({
       isChatIndex >= 0
         ? chats[isChatIndex].title
         : messageText.length > DESIRED_LENGTH
-        ? messageText.substring(0, DESIRED_LENGTH)
-        : messageText;
+          ? messageText.substring(0, DESIRED_LENGTH)
+          : messageText;
 
     if (!is_regenerate) {
       pushMessage(
@@ -152,7 +156,7 @@ export function Chat({
           rate: null,
           linkFile: "",
         },
-        idChatLocal
+        idChatLocal,
       );
     }
 
@@ -166,17 +170,14 @@ export function Chat({
       if (files?.length) {
         const formData = new FormData();
         formData.append("question", messageText);
-
-        if (!isTempChat) {
-          formData.append("session_id", idChatLocal);
-        }
+        formData.append("session_id", idChatLocal);
 
         files.forEach((fileObj: any) => {
           formData.append("files", fileObj);
         });
 
         const res = await api.requestAttachment(formData);
-        assistantText = formatText(res.answer);
+        assistantText = formatText(res.reply_text);
         linkFile = res.file || "";
         realSessionIdFromBackend = res.session_id || null;
       } else {
@@ -185,7 +186,7 @@ export function Chat({
           session_id: isTempChat ? null : idChatLocal,
         });
 
-        assistantText = formatText(res.answer);
+        assistantText = formatText(res.reply_text);
         linkFile = res.file || "";
         realSessionIdFromBackend = res.session_id || null;
       }
@@ -204,7 +205,7 @@ export function Chat({
           rate: null,
           linkFile,
         },
-        idChatLocal
+        idChatLocal,
       );
 
       if (isTempChat && realSessionIdFromBackend) {
@@ -223,11 +224,12 @@ export function Chat({
         }
         setAllMsg((prev) => ({
           ...prev,
-          [idChatLocal]: (prev[idChatLocal] || []).filter((m) => m.id !== messageId),
+          [idChatLocal]: (prev[idChatLocal] || []).filter(
+            (m) => m.id !== messageId,
+          ),
         }));
         return;
       }
-
 
       if (status === 401 || status === 403) {
         logout(error?.response?.statusText || "");
@@ -243,7 +245,7 @@ export function Chat({
           rate: null,
           linkFile: "",
         },
-        idChatLocal
+        idChatLocal,
       );
     } finally {
       setIsLoading(false);
@@ -300,7 +302,8 @@ export function Chat({
                 id: msg.id,
                 role: msg.role,
                 rate: msg?.rate || null,
-                linkFile: (msg as any)?.download_url || (msg as any)?.file || "",
+                linkFile:
+                  (msg as any)?.download_url || (msg as any)?.file || "",
               };
             }),
           };
@@ -317,7 +320,7 @@ export function Chat({
   const handleRegenerate = (id: string) => {
     const messages = allMsgs[idChat] ?? [];
     const index = messages.findIndex(
-      (msg) => msg.id == id && msg.role == "assistant"
+      (msg) => msg.id == id && msg.role == "assistant",
     );
     const userMsg = messages[index - 1];
 
@@ -334,7 +337,7 @@ export function Chat({
   const handleEdit = (id: string, data: Record<string, Message[]>) => {
     const messages = [...(data[idChat] ?? [])];
     const index = messages.findIndex(
-      (msg) => msg.id == id && msg.role == "user"
+      (msg) => msg.id == id && msg.role == "user",
     );
 
     const userMsg = messages[index];
@@ -361,7 +364,7 @@ export function Chat({
       setIdChat(id);
       getMessages(id);
     } else {
-      setIdChat(`temp-${uuidv4()}`);
+      setIdChat(`${uuidv4()}`);
     }
   }, [id]);
 
@@ -382,7 +385,7 @@ export function Chat({
     vote: number,
     value: number | null,
     idMessage: string,
-    sessionId: string
+    sessionId: string,
   ) => {
     if (!user) return;
     if (value === null) {
@@ -390,7 +393,7 @@ export function Chat({
         return {
           ...prev,
           [sessionId]: (prev[sessionId] || []).map((msg) =>
-            msg.id == idMessage ? { ...msg, rate: vote } : msg
+            msg.id == idMessage ? { ...msg, rate: vote } : msg,
           ),
         };
       });
@@ -531,7 +534,7 @@ export function Chat({
                             if (!token) return;
 
                             const url = `http://localhost:8000/api/chat/download?file=${encodeURIComponent(
-                              msg.linkFile
+                              msg.linkFile,
                             )}`;
 
                             // const url = `https://capp-resolucion-conflictos-compe.whitesand-8bead175.eastus2.azurecontainerapps.io/api/chat/download?file=${encodeURIComponent(
@@ -602,9 +605,7 @@ export function Chat({
             ))}
 
           {isLoading && (
-            <div className="text-center text-gray-500 italic">
-              Pensando...
-            </div>
+            <div className="text-center text-gray-500 italic">Pensando...</div>
           )}
           <div ref={endRef} />
         </div>
