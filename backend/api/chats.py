@@ -86,7 +86,7 @@ async def ask(
     return {
         "answer": reply_text,
         "session_id": res.get("session_id"),
-        "doc_id": payload.get("doc_id"),
+        "doc_id": res.get("doc_id"),
     }
 # endregion
 
