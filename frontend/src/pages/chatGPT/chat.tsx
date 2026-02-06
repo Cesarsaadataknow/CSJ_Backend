@@ -211,6 +211,18 @@ export function Chat({
       if (isTempChat && realSessionIdFromBackend) {
         migrateTempToReal(idChatLocal, realSessionIdFromBackend, titleChat);
       }
+
+      if (newChat) {
+        setChats((prev) => [
+          {
+            chatId: idChat,
+            title: titleChat,
+            created_at: JSON.stringify(new Date()),
+          },
+          ...prev,
+        ]);
+        navigate(`/c/${idChat}`);
+      }
     } catch (error: any) {
       const status = error?.response?.status;
       const detail = error?.response?.data?.detail;
@@ -244,17 +256,6 @@ export function Chat({
         idChatLocal,
       );
     } finally {
-      if (newChat) {
-        setChats((prev) => [
-          {
-            chatId: idChat,
-            title: titleChat,
-            created_at: JSON.stringify(new Date()),
-          },
-          ...prev,
-        ]);
-        navigate(`/c/${idChat}`);
-      }
       setIsLoading(false);
       setFiles([]);
     }
