@@ -1,5 +1,9 @@
+
+# -----------------------------------------------------------------------------
+# region           IMPORTACIONES
+# -----------------------------------------------------------------------------
 import os
-import io
+import json
 import base64
 from typing import Optional, List
 from core.ai_services import AIServices
@@ -14,15 +18,26 @@ from helpers.schema_http import (
     ChatJSONRequest, ResponseHTTPSessions, 
     ResponseHTTPOneSession,ResponseHTTPDelete, Message
 )
+# endregion
 
+# -----------------------------------------------------------------------------
+# region           ROUTERS DE CONEXION
+# -----------------------------------------------------------------------------
 chat_router = APIRouter(prefix="/api", tags=["chat"])
 download_router = APIRouter(prefix="/api", tags=["chat-download"])
+# endregion
 
-
+# -----------------------------------------------------------------------------
+# region         INICIALIZACIÓN Y CONFIGURACIÓN
+# -----------------------------------------------------------------------------
 auth_manager = AuthManager(settings.auth)
 cosmos = AIServices.AzureCosmosDB()
 orchestrator = Orchestrator()
+# endregion
 
+# -----------------------------------------------------------------------------
+# region           TIPO DE ARCHIVOS PERMITIDO
+# -----------------------------------------------------------------------------
 ALLOWED_MIME_TYPES = {
     "application/pdf",
     "application/msword",
@@ -30,15 +45,20 @@ ALLOWED_MIME_TYPES = {
 }
 
 ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx"}
+# endregion
 
+# -----------------------------------------------------------------------------
+# region           ENDPOINT: PREGUNTA GENERAL DE USUSARIO
+# -----------------------------------------------------------------------------
 @chat_router.post("/ask")
 async def ask(
-    question: str ,
+    question: str,
     session_id: str | None = None,
     user: User = Depends(auth_manager),
 ):
     if not question or not question.strip():
         raise HTTPException(status_code=400, detail="question es requerida.")
+
     user_id = getattr(user, "email", None) or getattr(user, "id", None) or getattr(user, "user_id", None)
     if not user_id:
         raise HTTPException(status_code=401, detail="Usuario no autenticado.")
@@ -46,12 +66,32 @@ async def ask(
     res = await orchestrator.ejecutar_agente(
         mensaje_usuario=question.strip(),
         user_id=user_id,
-        session_id=session_id, 
+        session_id=session_id,
         files=None,
     )
-    return res
+    reply_text = res.get("reply_text", "")
+    try:
+        payload = json.loads(reply_text)
+        if isinstance(payload, dict) and payload.get("doc_id"):
+            return {
+                "answer": payload.get("message") or "Documento generado.",
+                "session_id": res.get("session_id"),
+                "doc_id": payload.get("doc_id"),
+                "download_url": payload.get("download_url"),
+                "file_name": payload.get("file_name"),
+                "ok": payload.get("ok", True),
+            }
+    except Exception:
+        pass
+    return {
+        "answer": reply_text,
+        "session_id": res.get("session_id"),
+    }
+# endregion
 
-
+# -----------------------------------------------------------------------------
+# region           ENDPOINT: CARGA DE ARCHIVOS
+# -----------------------------------------------------------------------------
 @chat_router.post("/upload")
 async def upload(
     session_id: Optional[str] = None,
@@ -90,8 +130,11 @@ async def upload(
         files=files,
     )
     return res
+# endregion
 
-
+# -----------------------------------------------------------------------------
+# region           ENDPOINT: DESCARGA DE DOCUMENTOS
+# -----------------------------------------------------------------------------
 @download_router.get("/download/doc/{doc_id}")
 async def download_docx_by_id(doc_id: str, user: User = Depends(auth_manager)):
     user_id = user.email 
@@ -114,6 +157,7 @@ async def download_docx_by_id(doc_id: str, user: User = Depends(auth_manager)):
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+# endregion
 
 # -----------------------------------------------------------------------------
 # region           ENDPOINT: OBTENER SESIONES DE USUARIO
@@ -210,5 +254,4 @@ async def delete_one_session(conversation_id: str = Path(...), user: User = Depe
         "message": f"Sesión {conversation_id} eliminada correctamente.",
         "deleted_count": 1
     }
-
 # endregion

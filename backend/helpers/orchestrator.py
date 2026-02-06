@@ -1,4 +1,6 @@
-
+# -----------------------------------------------------------------------------
+# region           IMPORTACIONES
+# -----------------------------------------------------------------------------
 import uuid
 import asyncio
 from pathlib import Path
@@ -21,18 +23,33 @@ from helpers.indexacion import EmbeddingService
 from utils.functions import Functions
 
 load_dotenv(find_dotenv(), override=True)
+#endregion
 
+# -----------------------------------------------------------------------------
+# region           VARIABLES DE CONDICION
+# -----------------------------------------------------------------------------
 MAX_CONVERSATIONS_PER_USER = 10
 MAX_FILES_PER_SESSION = 40
 ALLOWED_CT = {
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
+#endregion
 
+# -----------------------------------------------------------------------------
+# region           RUTA DE TEMPLATE
+# -----------------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent 
 template_path = (BASE_DIR.parent / "templates" / "Documento_Consejo_Estado_template.docx").resolve()
+#endregion
 
+# -----------------------------------------------------------------------------
+# region           CLASE ORQUESTADOR
+# -----------------------------------------------------------------------------
 class Orchestrator:
+    # ------------------------------------------------------------
+    # 1) Funciones de inicializacion
+    # ------------------------------------------------------------
     def __init__(self): 
         self.llm = AzureChatOpenAI(
             api_key=settings.AZURE_OPENAI_KEY,
@@ -73,7 +90,10 @@ class Orchestrator:
             doc_generator= self.doc_generator,
             cosmosdb = self.cosmosdb,
         )
-        # --- DEFINICIÓN DE HERRAMIENTAS ---
+
+        # ------------------------------------------------------------
+        # 2) Tools - decisiones
+        # ------------------------------------------------------------
         self.tools = [
             Tool.from_function(
                 func=self.tools_class.tool_rag_userdocs,
@@ -108,7 +128,9 @@ class Orchestrator:
             ),
         ]
 
-        # 6) Agente
+        # ------------------------------------------------------------
+        # 3) Inicializacion de agente - tipo de agente
+        # ------------------------------------------------------------
         self.agent = initialize_agent(
             tools=self.tools,
             llm=self.llm,
@@ -117,11 +139,11 @@ class Orchestrator:
             handle_parsing_errors=True,
             agent_kwargs={"system_message": system_prompt_agente},
         )
+#endregion
 
-
-    # -------------------------------------------------------------------------
-    # MÉTODO PRINCIPAL (ASYNC)
-    # -------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# region           MÉTODO PRINCIPAL:EJECUTAR AGENTE
+# -----------------------------------------------------------------------------
     async def ejecutar_agente(
         self,
         mensaje_usuario: str,
@@ -176,7 +198,7 @@ class Orchestrator:
                     only_upload = await self.function.llm_detect(t,self.llm)
 
         # ------------------------------------------------------------
-        # 5) Ingesta: usar TU servicio (extract -> chunk -> embed -> upload)
+        # 5) Ingesta
         # ------------------------------------------------------------
         if files_uploaded_now:
             for f in files:
@@ -187,9 +209,6 @@ class Orchestrator:
                     raise HTTPException(status_code=400, detail=f"Tipo no permitido: {name} ({ct})")
 
                 file_bytes = await f.read()
-
-                # Esto es lo que tú ya tenías funcionando:
-                # ingestor.ingest(...) crea docs y llama indexer.upload(...)
                 try:
                     await asyncio.to_thread(
                         self.ingestor.ingest,
@@ -221,8 +240,7 @@ class Orchestrator:
                 "1) Resumir\n"
                 "2) Buscar algo específico\n"
                 "3) Extraer información clave\n"
-                "4) Comparar documentos\n"
-                "5) Generar un Word con un informe\n"
+                "4) Generar un Word con un informe\n"
             )
 
             self.cosmosdb.save_message_chat(
@@ -271,14 +289,14 @@ class Orchestrator:
             )
 
         input_modelo = f"""
-Historial:
-{contexto_chat}
+            Historial:
+            {contexto_chat}
 
-{instruccion_sistema}
+            {instruccion_sistema}
 
-<usuario>: {mensaje_usuario}
-<asistente>:
-"""
+            <usuario>: {mensaje_usuario}
+            <asistente>:
+            """
 
         # ------------------------------------------------------------
         # 10) Ejecutar agente
@@ -299,3 +317,4 @@ Historial:
         )
 
         return {"reply_text": output, "session_id": session_id}
+#endregion

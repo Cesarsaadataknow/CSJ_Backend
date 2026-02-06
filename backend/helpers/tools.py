@@ -1,11 +1,21 @@
+# -----------------------------------------------------------------------------
+# region           IMPORTACIONES
+# -----------------------------------------------------------------------------
 from __future__ import annotations
 import os
 import json
 import uuid
 from datetime import datetime
 from typing import Optional, List, Any
+#endregion
 
+# -----------------------------------------------------------------------------
+# region           CLASE FUNCIONES GENERALES
+# -----------------------------------------------------------------------------
 class Tools:
+    # ---------------------------------------------------------------------
+    # Funciones de inicializacion
+    # ---------------------------------------------------------------------
     def __init__(self, rag_userdocs, rag_corpus, llm_chat, doc_generator, cosmosdb):
         self.rag_userdocs = rag_userdocs
         self.rag_corpus = rag_corpus
@@ -17,6 +27,9 @@ class Tools:
         self.session_id: Optional[str] = None
         self.files: List[Any] = []
 
+    # ---------------------------------------------------------------------
+    # Funcion de contexto agente
+    # ---------------------------------------------------------------------
     def bind_context(self, session_id: str, user_id: str, files=None):
         self.session_id = session_id
         self.user_id = user_id
@@ -95,3 +108,4 @@ class Tools:
             "session_id": self.session_id,
             "download_url": f"/api/chat/download/doc/{doc_id}",
         })
+#endregion

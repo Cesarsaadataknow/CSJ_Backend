@@ -4,8 +4,6 @@ from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import json
 
-
-
 class DocxTemplateBuilder:
     def __init__(self, template_path: str):
         self.template_path = template_path
@@ -56,7 +54,6 @@ class DocxTemplateBuilder:
         for table in doc.tables:
             self._replace_in_table(table, mapping)
 
-        # Headers / Footers (logo suele estar aquí y NO se toca)
         for section in doc.sections:
             header = section.header
             footer = section.footer
@@ -267,7 +264,7 @@ INSTRUCCIONES:
         instrucciones: str,
         user_id: str,
         session_id: str,
-        source: Optional[str] = None,   # "userdocs" | "corpus" | None (auto)
+        source: Optional[str] = None,   
     ) -> Tuple[bytes, Dict[str, Any]]:
         """
         Retorna:
@@ -296,7 +293,6 @@ INSTRUCCIONES:
         raw = (getattr(resp, "content", None) or str(resp)).strip()
         data = self._safe_json_loads(raw)
 
-        # Si el modelo devolvió vacío, no te rompas: genera payload mínimo
         if not data:
             data = {
                 "ciudad_fecha": "",
@@ -325,7 +321,7 @@ INSTRUCCIONES:
                     fuentes.append({"doc": "CORPUS", "chunk": str(h.get("chunk_order", ""))})
             data["fuentes"] = fuentes
 
-        # 4) resuelve_texto para el placeholder {{RESUELVE}}
+        # 4) resuelve_texto para el placeholder 
         data["resuelve_texto"] = self._build_resuelve_text(data.get("resuelve", []))
 
         # 5) Builder DOCX (mantiene logo/estilos)
