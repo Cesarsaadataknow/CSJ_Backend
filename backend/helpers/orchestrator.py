@@ -3,6 +3,7 @@
 # -----------------------------------------------------------------------------
 import uuid
 import asyncio
+import json
 from pathlib import Path
 from typing import Optional, List
 from fastapi import UploadFile, HTTPException
@@ -124,7 +125,8 @@ class Orchestrator:
                 description=(
                     "Usa esta herramienta ÚNICAMENTE cuando el usuario pida descargar/crear/generar/exportar "
                     "un archivo Word."
-                )
+                ),
+                return_direct=True,
             ),
         ]
 
@@ -302,19 +304,30 @@ class Orchestrator:
         # 10) Ejecutar agente
         # ------------------------------------------------------------
         respuesta = await asyncio.to_thread(self.agent.invoke, {"input": input_modelo})
-        output = (respuesta.get("output") or "").strip()
+
+        raw_output = respuesta.get("output")
+
+        # si el tool devuelve dict (return_direct=True) aquí llega dict
+        if isinstance(raw_output, str):
+            output = raw_output.strip()
+        else:
+            output = raw_output  # dict u otro tipo
 
         # ------------------------------------------------------------
         # 11) Guardar en Cosmos
         # ------------------------------------------------------------
+        # Cosmos espera string, entonces si viene dict lo serializamos
+        output_to_save = output if isinstance(output, str) else json.dumps(output, ensure_ascii=False)
+
         self.cosmosdb.save_message_chat(
             session_id=session_id,
             user_id=user_id,
             user_question=mensaje_usuario,
-            ia_response=output,
+            ia_response=output_to_save,
             channel="web",
             extra={"tools": str(respuesta.get("intermediate_steps"))},
         )
 
         return {"reply_text": output, "session_id": session_id}
+
 #endregion

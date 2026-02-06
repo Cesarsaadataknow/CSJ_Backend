@@ -100,12 +100,12 @@ class Tools:
         )
 
         doc_id = saved["id"]
-        return json.dumps({
+        return {
             "ok": True,
             "message": "Listo, generé el documento. Dale por favor en Descargar.",
             "doc_id": doc_id,
             "file_name": filename,
             "session_id": self.session_id,
             "download_url": f"/api/chat/download/doc/{doc_id}",
-        })
+        }
 #endregion
