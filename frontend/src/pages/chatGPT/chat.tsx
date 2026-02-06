@@ -183,7 +183,7 @@ export function Chat({
 
         const res = await api.requestAttachment(formData);
         assistantText = formatText(res.reply_text);
-        linkFile = getDocId(res.reply_text) || "";
+        linkFile = res.doc_id || "";
         realSessionIdFromBackend = res.session_id || null;
       } else {
         const res = await api.requestChat({
@@ -192,7 +192,7 @@ export function Chat({
         });
 
         assistantText = formatText(res.answer);
-        linkFile = getDocId(res.answer) || "";
+        linkFile = res.doc_id || "";
         realSessionIdFromBackend = res.session_id || null;
       }
 
