@@ -117,11 +117,6 @@ export function Chat({
     navigate(`c/${realId}`);
   };
 
-  function getDocId(answer: string): string | null {
-    const match = answer.match(/doc_[a-zA-Z0-9]+/);
-    return match ? match[0] : null;
-  }
-
   const handleSubmit = async ({
     text = "",
     idMessageCorrected = "",
@@ -223,10 +218,6 @@ export function Chat({
       if (status === 409) {
         const msg = detail || "Límite alcanzado.";
         toast.error(msg);
-
-        if (isTempChat) {
-          navigate("/");
-        }
         setAllMsg((prev) => ({
           ...prev,
           [idChatLocal]: (prev[idChatLocal] || []).filter(
@@ -253,6 +244,17 @@ export function Chat({
         idChatLocal,
       );
     } finally {
+      if (newChat) {
+        setChats((prev) => [
+          {
+            chatId: idChat,
+            title: titleChat,
+            created_at: JSON.stringify(new Date()),
+          },
+          ...prev,
+        ]);
+        navigate(`/c/${idChat}`);
+      }
       setIsLoading(false);
       setFiles([]);
     }
