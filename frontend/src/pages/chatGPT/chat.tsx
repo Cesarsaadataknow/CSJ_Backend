@@ -138,13 +138,18 @@ export function Chat({
     const isTempChat = idChatLocal.startsWith("temp-");
 
     const isChatIndex = chats.findIndex((chat) => chat.chatId == idChatLocal);
+    const hasFiles = !!files?.length;
 
     const titleChat =
       isChatIndex >= 0
         ? chats[isChatIndex].title
-        : messageText.length > DESIRED_LENGTH
-          ? messageText.substring(0, DESIRED_LENGTH)
-          : messageText;
+        : messageText
+          ? messageText.length > DESIRED_LENGTH
+            ? messageText.substring(0, DESIRED_LENGTH)
+            : messageText
+          : hasFiles
+            ? "Subida de archivos"
+            : "Nueva conversación";
 
     if (!is_regenerate) {
       pushMessage(
