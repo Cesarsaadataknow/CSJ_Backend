@@ -1,6 +1,7 @@
 
 import uuid
 import asyncio
+from pathlib import Path
 from typing import Optional, List
 from fastapi import UploadFile, HTTPException
 from dotenv import load_dotenv, find_dotenv
@@ -13,6 +14,7 @@ from core.ai_services import AIServices
 from helpers.prompts import system_prompt_agente
 from helpers.read_service import DocumentIntelligenceExtractor, TextCleaner
 from helpers.indexacion import AzureSearchIndexer, FabricSearchIndexer, Chunker
+from helpers.document_generator import  DocxTemplateBuilder, DocumentGeneratorService
 from helpers.ingestion import IngestionService
 from core.rag_service import RAGFabricService, RAGService
 from helpers.indexacion import EmbeddingService  
@@ -27,36 +29,36 @@ ALLOWED_CT = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
 
+BASE_DIR = Path(__file__).resolve().parent 
+template_path = (BASE_DIR.parent / "templates" / "Documento_Consejo_Estado_template.docx").resolve()
+
 class Orchestrator:
-    def __init__(self):
-        # 1) Ingesta userdocs (lo tuyo)
-        self.search_manager = AzureSearchIndexer()  
-        self.extractor = DocumentIntelligenceExtractor()
-        self.cleaner = TextCleaner()
-        self.chunker = Chunker(max_tokens=900, overlap=150)
-        self.embedder = EmbeddingService()
-        # 2) Cerebro
+    def __init__(self): 
         self.llm = AzureChatOpenAI(
             api_key=settings.AZURE_OPENAI_KEY,
             azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
             api_version=settings.AZURE_OPENAI_OPENAI_VERSION,
             deployment_name=settings.AZURE_OPENAI_CHAT_DEPLOYMENT,
             temperature=0.4,
-        )
-
+        ) 
+        self.extractor = DocumentIntelligenceExtractor()
+        self.cleaner = TextCleaner()
+        self.chunker = Chunker(max_tokens=900, overlap=150)
+        self.embedder = EmbeddingService()
         self.function = Functions()
-
-        # 3) DB
         self.cosmosdb = AIServices.AzureCosmosDB()
-
-
-        # 4.2 Indexer corpus (solo consulta, no ingesta)
         self.corpus_indexer = FabricSearchIndexer()
-
-        # 4.3 RAG corpus
+        self.search_manager = AzureSearchIndexer()
         self.rag_corpus = RAGFabricService(embedder=self.embedder, indexer=self.corpus_indexer)
         self.rag_userdocs = RAGService(embedder=self.embedder, indexer=self.search_manager)
-
+        self.doc = DocxTemplateBuilder (str(template_path))
+        self.doc_generator = DocumentGeneratorService(
+            llm_chat=self.llm,
+            embedder=self.embedder,
+            indexer_userdocs=self.search_manager,
+            indexer_corpus=self.corpus_indexer,
+            docx_builder=self.doc,
+        )
         self.ingestor = IngestionService(
             extractor=self.extractor,
             cleaner=self.cleaner,
@@ -64,14 +66,13 @@ class Orchestrator:
             embedder=self.embedder,
             indexer=self.search_manager,
         )
-
         self.tools_class = Tools(
-            rag_userdocs=self.rag_userdocs,   # tu RAGService de docs subidos
-            rag_corpus=self.rag_corpus,       # tu servicio del índice del compa (FabricSearchIndexer)
-            llm_chat=self.llm,                # tu AzureChatOpenAI
+            rag_userdocs=self.rag_userdocs,  
+            rag_corpus=self.rag_corpus,       
+            llm_chat=self.llm,
+            doc_generator= self.doc_generator,
+            cosmosdb = self.cosmosdb,
         )
-
-
         # --- DEFINICIÓN DE HERRAMIENTAS ---
         self.tools = [
             Tool.from_function(
@@ -97,14 +98,14 @@ class Orchestrator:
                 name="tool_conversacional",
                 description="Usa esta herramienta para saludos, despedidas o charla que NO requiera consultar índices."
             ),
-            # Tool.from_function(
-            #     func=self.tools_class.tool_word,
-            #     name="tool_generar_word",
-            #     description=(
-            #         "Usa esta herramienta ÚNICAMENTE cuando el usuario pida descargar/crear/generar/exportar "
-            #         "un archivo Word."
-            #     )
-            # ),
+            Tool.from_function(
+                func=self.tools_class.tool_word,
+                name="tool_generar_word",
+                description=(
+                    "Usa esta herramienta ÚNICAMENTE cuando el usuario pida descargar/crear/generar/exportar "
+                    "un archivo Word."
+                )
+            ),
         ]
 
         # 6) Agente

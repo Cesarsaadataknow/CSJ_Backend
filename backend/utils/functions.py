@@ -1,5 +1,6 @@
 import json
 import asyncio
+from datetime import datetime, timezone
 
 class Functions:
 
@@ -24,7 +25,6 @@ class Functions:
             return True
 
         return False
-
 
 
     async def llm_detect(self, text: str, llm) -> bool:
@@ -52,3 +52,8 @@ class Functions:
             return data.get("intent") == "ONLY_UPLOAD"
         except Exception:
             return False
+        
+    
+    @staticmethod
+    def _utc_iso() -> str:
+        return datetime.now(timezone.utc).isoformat()

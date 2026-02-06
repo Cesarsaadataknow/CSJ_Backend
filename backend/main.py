@@ -1,8 +1,24 @@
 from fastapi import FastAPI
-from api.chats import router as chat_router
+from fastapi.middleware.cors import CORSMiddleware
+from api.chats import chat_router 
+from api.chats import download_router as download
+from api import auth
 
-app = FastAPI()
+app = FastAPI(
+    title="Agente Jurídico - Resolución de Conflictos",
+    version="0.1.1"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(chat_router)
+app.include_router(auth.router, prefix="/api/auth",tags=["auth"])
+app.include_router(download)
 
 
 
@@ -46,18 +62,3 @@ app.include_router(chat_router)
 #     )
 
 
-
-# # from fastapi import FastAPI
-# # from fastapi.middleware.cors import CORSMiddleware
-# # from helpers.chat import chat_router   # ← CAMBIO AQUÍ
-
-# # app = FastAPI(title="Agente Jurídico - Resolución de Conflictos")
-
-# # app.add_middleware(
-# #     CORSMiddleware,
-# #     allow_origins=["*"],
-# #     allow_methods=["*"],
-# #     allow_headers=["*"],
-# # )
-
-# # app.include_router(chat_router, prefix="/api/chat", tags=["chat"])

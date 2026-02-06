@@ -1,12 +1,17 @@
 from __future__ import annotations
+import os
+import json
+import uuid
+from datetime import datetime
 from typing import Optional, List, Any
 
 class Tools:
-    def __init__(self, rag_userdocs, rag_corpus, llm_chat):
+    def __init__(self, rag_userdocs, rag_corpus, llm_chat, doc_generator, cosmosdb):
         self.rag_userdocs = rag_userdocs
         self.rag_corpus = rag_corpus
-        #self.downloader = downloader
+        self.doc_generator = doc_generator
         self.llm_chat = llm_chat
+        self.cosmosdb = cosmosdb
 
         self.user_id: Optional[str] = None
         self.session_id: Optional[str] = None
@@ -50,17 +55,43 @@ class Tools:
         return (res.get("answer") or "").strip()
 
     # ---------------------------------------------------------------------
-    # TOOL 4: Descargar / Generar Word (o PDF)
+    # TOOL 4: Descargar / Generar Word 
     # ---------------------------------------------------------------------
-    # def tool_word(self, query: str) -> str:
-    #     if not self.user_id or not self.session_id:
-    #         return "No tengo user_id/session_id para generar el archivo."
+    def tool_word(self, instrucciones: str) -> str:
+        """
+        Genera DOCX con template y lo deja listo para descargar vía endpoint.
+        Guarda el DOCX (bytes) en Cosmos (recomendado para ahora).
+        """
+        if not self.session_id or not self.user_id:
+            return json.dumps({"ok": False, "message": "No hay session_id/user_id en contexto."})
 
-    #     # Ajusta esto a tu implementación real
-    #     out = self.downloader.generate(
-    #         session_id=self.session_id,
-    #         user_id=self.user_id,
-    #         instructions=query,
-    #         fmt="docx"  
-    #     )
-    #     return f"Listo. Archivo generado: {out}"
+        instrucciones = (instrucciones or "").strip()
+        if not instrucciones:
+            return json.dumps({"ok": False, "message": "Faltan instrucciones para generar el documento."})
+
+        docx_bytes, payload = self.doc_generator.generate_docx_bytes(
+            instrucciones=instrucciones,
+            user_id=self.user_id,
+            session_id=self.session_id,
+            source=None,
+        )
+
+        filename = f"documento_{self.session_id}_{uuid.uuid4().hex[:8]}.docx"
+        saved = self.cosmosdb.save_generated_doc(
+            session_id=self.session_id,
+            user_id=self.user_id,
+            file_name=filename,
+            docx_bytes=docx_bytes,
+            payload=payload,
+            message_id=None,  
+        )
+
+        doc_id = saved["id"]
+        return json.dumps({
+            "ok": True,
+            "message": "Listo, generé el documento. Dale por favor en Descargar.",
+            "doc_id": doc_id,
+            "file_name": filename,
+            "session_id": self.session_id,
+            "download_url": f"/api/chat/download/doc/{doc_id}",
+        })

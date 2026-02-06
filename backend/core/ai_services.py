@@ -1,12 +1,14 @@
 import logging
 import uuid
+import base64
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Any
 from app.config import settings
 from openai import AzureOpenAI
 from langchain_openai import AzureChatOpenAI
 from azure.cosmos import CosmosClient, PartitionKey, exceptions
 from helpers.prompts import generate_session_title
+from utils.functions import Functions
 
 class AIServices:
 
@@ -39,12 +41,14 @@ class AIServices:
             self.database_name = settings.AZURE_COSMOSDB_NAME
             self.container_sessions_name = settings.AZURE_COSMOSDB_CONTAINER_NAME_SESSION
             self.container_messages_name = settings.AZURE_COSMOSDB_CONTAINER_NAME_MGS
+            self.container_docs_name = settings.AZURE_COSMOSDB_CONTAINER_NAME_DOCS
 
             self.openaikey= settings.AZURE_OPENAI_KEY
             self.endpointopenai=settings.AZURE_OPENAI_ENDPOINT
             self.modelo_ia = settings.AZURE_OPENAI_CHAT_DEPLOYMENT
             self.version_api_ia = settings.AZURE_OPENAI_OPENAI_VERSION
-            
+            self.function = Functions()
+
             self.llm = AzureChatOpenAI(
                 azure_deployment=self.modelo_ia,
                 api_version=self.version_api_ia,
@@ -71,6 +75,11 @@ class AIServices:
                 self.messages_container = self.database.create_container_if_not_exists(
                     id=self.container_messages_name,
                     partition_key=PartitionKey(path="/id_session"),
+                )
+
+                self.docs_container = self.database.create_container_if_not_exists(
+                    id=self.container_docs_name,
+                    partition_key=PartitionKey(path="/id"),
                 )
 
                 logging.info("Conectado a Cosmos DB y contenedores listos.")
@@ -261,7 +270,7 @@ class AIServices:
                     except Exception as e:
                         logging.warning(f" Error eliminando mensaje {msg.get('id')}: {e}")
 
-                logging.info(f"🧹 Se eliminaron {deleted} mensajes de la sesión {session_id}")
+                logging.info(f"Se eliminaron {deleted} mensajes de la sesión {session_id}")
 
                 # Borrar sesión
                 try:
@@ -328,3 +337,58 @@ class AIServices:
 
             self.save_message(message_data)
             self.touch_session(session_id)
+
+
+
+        def save_generated_doc(
+            self,
+            *,
+            session_id: str,
+            user_id: str,
+            file_name: str,
+            docx_bytes: bytes,
+            payload: dict | None = None,
+            message_id: str | None = None,  
+        ) -> Dict[str, Any]:
+            doc_id = f"doc_{uuid.uuid4().hex}"
+
+            item = {
+                "id": doc_id,                     
+                "type": "generated_docx",
+                "session_id": session_id,
+                "user_id": user_id,
+                "file_name": file_name,
+                "docx_b64": base64.b64encode(docx_bytes).decode("utf-8"),
+                "payload": payload or {},
+                "message_id": message_id,          
+                "created_at": self.function._utc_iso(),
+            }
+
+            self.docs_container.create_item(item)
+            return item
+
+        def get_generated_doc_by_id(self, *, doc_id: str) -> Optional[Dict[str, Any]]:
+            try:
+                return self.docs_container.read_item(item=doc_id, partition_key=doc_id)
+            except Exception:
+                return None
+
+        def list_generated_docs_by_session(self, *, session_id: str, user_id: str, top: int = 50) -> List[Dict[str, Any]]:
+            query = """
+            SELECT TOP @top c.id, c.file_name, c.created_at, c.message_id
+            FROM c
+            WHERE c.type = 'generated_docx'
+            AND c.session_id = @sid
+            AND c.user_id = @uid
+            ORDER BY c.created_at DESC
+            """
+            params = [
+                {"name": "@sid", "value": session_id},
+                {"name": "@uid", "value": user_id},
+                {"name": "@top", "value": top},
+            ]
+            return list(self.docs_container.query_items(
+                query=query,
+                parameters=params,
+                enable_cross_partition_query=True 
+            ))

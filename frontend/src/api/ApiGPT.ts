@@ -72,7 +72,7 @@ const api = {
   },
 
   async requestAllSession(token: string): Promise<any> {
-    const response: ApiResponse = await apiClientCommon.get("/chat/sessions", {
+    const response: ApiResponse = await apiClientCommon.get("/sessions", {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -83,7 +83,7 @@ const api = {
   async requestOneSession(conversation_id: string): Promise<any> {
     const token = localStorage.getItem("access_token");
     const response: ApiResponse = await apiClientCommon.get(
-      "/chat/get_one_session",
+      "/get_one_session",
       {
         params: { conversation_id },
         headers: {
@@ -97,7 +97,7 @@ const api = {
   async requestDeleteSession(session_id: string): Promise<any> {
     const token = localStorage.getItem("access_token");
     const response: ApiResponse = await apiClientCommon.delete(
-      `/chat/delete_one_session/${session_id}`,
+      `/delete_one_session/${session_id}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -123,7 +123,7 @@ const api = {
 
     const token = localStorage.getItem("access_token");
     const response: ApiResponse = await apiClientCommon.post(
-      "/chat/json",
+      "/ask",
       requestData,
       {
         headers: {
@@ -138,7 +138,7 @@ const api = {
   async requestAttachment(attachment: any): Promise<any> {
     const token = localStorage.getItem("access_token");
     const response: ApiResponse = await apiClientMultipart.post(
-      "/chat/upload",
+      "/upload",
       attachment,
       {
         headers: {
