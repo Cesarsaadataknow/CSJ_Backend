@@ -50,6 +50,41 @@ ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx"}
 # -----------------------------------------------------------------------------
 # region           ENDPOINT: PREGUNTA GENERAL DE USUSARIO
 # -----------------------------------------------------------------------------
+def _extract_tool_json(reply_text: str) -> dict | None:
+    """
+    Intenta sacar el JSON devuelto por tool_word aunque venga mezclado con texto.
+    """
+    if not reply_text:
+        return None
+
+    txt = reply_text.strip()
+
+    # 1) Caso ideal: es JSON puro
+    try:
+        obj = json.loads(txt)
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        pass
+
+    # 2) Busca un bloque JSON dentro del texto (del primer { al último })
+    start = txt.find("{")
+    end = txt.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        candidate = txt[start:end+1]
+        try:
+            obj = json.loads(candidate)
+            return obj if isinstance(obj, dict) else None
+        except Exception:
+            pass
+
+    # 3) Fallback: saca doc_id por regex aunque no haya JSON válido
+    m = re.search(r'"doc_id"\s*:\s*"([^"]+)"', txt)
+    if m:
+        return {"doc_id": m.group(1)}
+
+    return None
+
+
 @chat_router.post("/ask")
 async def ask(
     question: str,
@@ -69,24 +104,26 @@ async def ask(
         session_id=session_id,
         files=None,
     )
-    reply_text = res.get("reply_text", "")
-    try:
-        payload = json.loads(reply_text)
-        if isinstance(payload, dict) and payload.get("doc_id"):
-            return {
-                "answer": payload.get("message") or "Documento generado.",
-                "session_id": res.get("session_id"),
-                "doc_id": payload.get("doc_id"),
-                "download_url": payload.get("download_url"),
-                "file_name": payload.get("file_name"),
-                "ok": payload.get("ok", True),
-            }
-    except Exception:
-        pass
+
+    reply_text = res.get("reply_text", "") or ""
+
+    tool_payload = _extract_tool_json(reply_text)
+
+    # ✅ Si el tool devolvió doc_id, lo retornamos separado para el front
+    if tool_payload and tool_payload.get("doc_id"):
+        return {
+            "answer": tool_payload.get("message") or "Documento generado.",
+            "session_id": res.get("session_id"),
+            "doc_id": tool_payload.get("doc_id"),
+            "download_url": tool_payload.get("download_url"),
+            "file_name": tool_payload.get("file_name"),
+            "ok": tool_payload.get("ok", True),
+        }
+
+    # ✅ Respuesta normal
     return {
         "answer": reply_text,
         "session_id": res.get("session_id"),
-        "doc_id": res.get("doc_id"),
     }
 # endregion
 
