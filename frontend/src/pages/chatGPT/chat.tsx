@@ -174,14 +174,13 @@ export function Chat({
 
       if (files?.length) {
         const formData = new FormData();
-        formData.append("question", messageText);
         formData.append("session_id", idChatLocal);
 
         files.forEach((fileObj: any) => {
           formData.append("files", fileObj);
         });
 
-        const res = await api.requestAttachment(formData);
+        const res = await api.requestAttachment(files, idChatLocal);
         assistantText = formatText(res.reply_text);
         linkFile = res.doc_id || "";
         realSessionIdFromBackend = res.session_id || null;

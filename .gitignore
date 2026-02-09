@@ -65,4 +65,4 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 dist/
-__pycache__/
+*.pyc

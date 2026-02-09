@@ -1,11 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosInstance } from "axios";
 
-const BASE_URL =
-  "http://localhost:8000/api";
+const BASE_URL = "http://localhost:8000/api";
 
-  // const BASE_URL =
-  // "https://capp-resolucion-conflictos-compe.whitesand-8bead175.eastus2.azurecontainerapps.io/api";
+// const BASE_URL =
+// "https://capp-resolucion-conflictos-compe.whitesand-8bead175.eastus2.azurecontainerapps.io/api";
 
 const apiClientMultipart: AxiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -132,16 +131,21 @@ const api = {
       },
     );
     return response.data;
-  }
-,
-
-  async requestAttachment(attachment: any): Promise<any> {
+  },
+  async requestAttachment(files: File[], sessionId: string): Promise<any> {
     const token = localStorage.getItem("access_token");
+    const formData = new FormData();
+
+    files.forEach((file) => {
+      formData.append("files", file);
+    });
+
     const response: ApiResponse = await apiClientMultipart.post(
-      "/upload",
-      attachment,
+      `/upload?session_id=${sessionId}`,
+      formData,
       {
         headers: {
+          // "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`,
         },
       },
