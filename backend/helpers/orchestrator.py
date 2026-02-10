@@ -17,14 +17,14 @@ from core.ai_services import AIServices
 from helpers.prompts import system_prompt_agente
 from helpers.read_service import DocumentIntelligenceExtractor, TextCleaner
 from helpers.indexacion import AzureSearchIndexer, FabricSearchIndexer, Chunker
-from helpers.document_generator import  DocxTemplateBuilder, DocumentGeneratorService
+from helpers.document_generator import DocxTemplateBuilder, DocumentGeneratorService
 from helpers.ingestion import IngestionService
 from core.rag_service import RAGFabricService, RAGService
-from helpers.indexacion import EmbeddingService  
+from helpers.indexacion import EmbeddingService
 from utils.functions import Functions
 
 load_dotenv(find_dotenv(), override=True)
-#endregion
+# endregion
 
 # -----------------------------------------------------------------------------
 # region           VARIABLES DE CONDICION
@@ -35,30 +35,31 @@ ALLOWED_CT = {
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
-#endregion
+# endregion
 
 # -----------------------------------------------------------------------------
 # region           RUTA DE TEMPLATE
 # -----------------------------------------------------------------------------
-BASE_DIR = Path(__file__).resolve().parent 
+BASE_DIR = Path(__file__).resolve().parent
 template_path = (BASE_DIR.parent / "templates" / "Documento_Consejo_Estado_template.docx").resolve()
-#endregion
+# endregion
+
 
 # -----------------------------------------------------------------------------
 # region           CLASE ORQUESTADOR
 # -----------------------------------------------------------------------------
 class Orchestrator:
     # ------------------------------------------------------------
-    # 1) Funciones de inicializacion
+    # 1) Inicialización
     # ------------------------------------------------------------
-    def __init__(self): 
+    def __init__(self):
         self.llm = AzureChatOpenAI(
             api_key=settings.AZURE_OPENAI_KEY,
             azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
             api_version=settings.AZURE_OPENAI_OPENAI_VERSION,
             deployment_name=settings.AZURE_OPENAI_CHAT_DEPLOYMENT,
             temperature=0.4,
-        ) 
+        )
         self.extractor = DocumentIntelligenceExtractor()
         self.cleaner = TextCleaner()
         self.chunker = Chunker(max_tokens=900, overlap=150)
@@ -67,9 +68,17 @@ class Orchestrator:
         self.cosmosdb = AIServices.AzureCosmosDB()
         self.corpus_indexer = FabricSearchIndexer()
         self.search_manager = AzureSearchIndexer()
-        self.rag_corpus = RAGFabricService(embedder=self.embedder, indexer=self.corpus_indexer)
-        self.rag_userdocs = RAGService(embedder=self.embedder, indexer=self.search_manager)
-        self.doc = DocxTemplateBuilder (str(template_path))
+
+        self.rag_corpus = RAGFabricService(
+            embedder=self.embedder,
+            indexer=self.corpus_indexer
+        )
+        self.rag_userdocs = RAGService(
+            embedder=self.embedder,
+            indexer=self.search_manager
+        )
+
+        self.doc = DocxTemplateBuilder(str(template_path))
         self.doc_generator = DocumentGeneratorService(
             llm_chat=self.llm,
             embedder=self.embedder,
@@ -77,6 +86,7 @@ class Orchestrator:
             indexer_corpus=self.corpus_indexer,
             docx_builder=self.doc,
         )
+
         self.ingestor = IngestionService(
             extractor=self.extractor,
             cleaner=self.cleaner,
@@ -84,54 +94,49 @@ class Orchestrator:
             embedder=self.embedder,
             indexer=self.search_manager,
         )
+
         self.tools_class = Tools(
-            rag_userdocs=self.rag_userdocs,  
-            rag_corpus=self.rag_corpus,       
+            rag_userdocs=self.rag_userdocs,
+            rag_corpus=self.rag_corpus,
             llm_chat=self.llm,
-            doc_generator= self.doc_generator,
-            cosmosdb = self.cosmosdb,
+            doc_generator=self.doc_generator,
+            cosmosdb=self.cosmosdb,
         )
 
         # ------------------------------------------------------------
-        # 2) Tools - decisiones
+        # 2) Tools
         # ------------------------------------------------------------
         self.tools = [
             Tool.from_function(
                 func=self.tools_class.tool_rag_userdocs,
                 name="tool_rag_userdocs",
                 description=(
-                    "Usa esta herramienta cuando la pregunta sea sobre documentos SUBIDOS por el usuario "
-                    "en la sesión actual. Ej: 'este documento', 'lo que subí', 'adjunto', "
-                    "'resume el archivo', 'qué dice el documento sobre...'."
+                    "Usa esta herramienta cuando la pregunta sea sobre documentos SUBIDOS "
+                    "por el usuario en la sesión actual."
                 ),
             ),
             Tool.from_function(
                 func=self.tools_class.tool_rag_fabric,
                 name="tool_rag_corpus",
                 description=(
-                    "Usa esta herramienta cuando la pregunta sea sobre el CORPUS/JURISPRUDENCIA "
-                    "(índice del compa). Ej: 'CSJ', 'jurisprudencia', 'sentencia', 'radicado', "
-                    "'actor demandado', 'problema jurídico'."
+                    "Usa esta herramienta cuando la pregunta sea sobre el CORPUS/JURISPRUDENCIA."
                 ),
             ),
             Tool.from_function(
                 func=self.tools_class.tool_conversacional,
                 name="tool_conversacional",
-                description="Usa esta herramienta para saludos, despedidas o charla que NO requiera consultar índices."
+                description="Usa esta herramienta para charla general."
             ),
             Tool.from_function(
                 func=self.tools_class.tool_word,
                 name="tool_generar_word",
-                description=(
-                    "Usa esta herramienta ÚNICAMENTE cuando el usuario pida descargar/crear/generar/exportar "
-                    "un archivo Word."
-                ),
+                description="Usa esta herramienta SOLO para generar Word.",
                 return_direct=True,
             ),
         ]
 
         # ------------------------------------------------------------
-        # 3) Inicializacion de agente - tipo de agente
+        # 3) Agente
         # ------------------------------------------------------------
         self.agent = initialize_agent(
             tools=self.tools,
@@ -141,10 +146,11 @@ class Orchestrator:
             handle_parsing_errors=True,
             agent_kwargs={"system_message": system_prompt_agente},
         )
-#endregion
+# endregion
+
 
 # -----------------------------------------------------------------------------
-# region           MÉTODO PRINCIPAL:EJECUTAR AGENTE
+# region           MÉTODO PRINCIPAL
 # -----------------------------------------------------------------------------
     async def ejecutar_agente(
         self,
@@ -161,43 +167,36 @@ class Orchestrator:
             raise HTTPException(status_code=401, detail="Usuario no autenticado.")
 
         # ------------------------------------------------------------
-        # 2) Sesión nueva + límite 10 conversaciones
+        # 2) Sesión
         # ------------------------------------------------------------
         if not session_id:
-            user_sessions = self.cosmosdb.get_user_sessions(user_id)
-            if len(user_sessions) >= MAX_CONVERSATIONS_PER_USER:
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"Límite alcanzado: máximo {MAX_CONVERSATIONS_PER_USER} conversaciones por usuario."
-                )
+            sesiones = self.cosmosdb.get_user_sessions(user_id)
+            if len(sesiones) >= MAX_CONVERSATIONS_PER_USER:
+                raise HTTPException(status_code=409, detail="Límite de sesiones alcanzado.")
             session_id = str(uuid.uuid4())
 
         files = files or []
         files_uploaded_now = len(files) > 0
 
         # ------------------------------------------------------------
-        # 3) Validación límite 40 archivos por sesión
+        # 3) Límite archivos
         # ------------------------------------------------------------
         if files_uploaded_now:
-            existing_files = self.cosmosdb.count_uploaded_files(session_id)
-            if existing_files + len(files) > MAX_FILES_PER_SESSION:
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"Límite de archivos alcanzado ({MAX_FILES_PER_SESSION} máx). Ya tienes {existing_files}."
-                )
+            existentes = self.cosmosdb.count_uploaded_files(session_id)
+            if existentes + len(files) > MAX_FILES_PER_SESSION:
+                raise HTTPException(status_code=409, detail="Límite de archivos alcanzado.")
 
         # ------------------------------------------------------------
-        # 4) Detectar si es solo subida (sin pregunta real)
+        # 4) Detectar solo subida
         # ------------------------------------------------------------
         only_upload = False
         if files_uploaded_now:
             if self.function.key_words(mensaje_usuario):
                 only_upload = True
             else:
-                # Zona gris: si el mensaje es corto o ambiguo, que decida el LLM
                 t = (mensaje_usuario or "").strip()
                 if len(t) < 40 and "?" not in t:
-                    only_upload = await self.function.llm_detect(t,self.llm)
+                    only_upload = await self.function.llm_detect(t, self.llm)
 
         # ------------------------------------------------------------
         # 5) Ingesta
@@ -205,129 +204,449 @@ class Orchestrator:
         if files_uploaded_now:
             for f in files:
                 ct = (f.content_type or "").lower()
-                name = f.filename or "archivo"
-
                 if ct not in ALLOWED_CT:
-                    raise HTTPException(status_code=400, detail=f"Tipo no permitido: {name} ({ct})")
+                    raise HTTPException(status_code=400, detail=f"Tipo no permitido: {f.filename}")
 
-                file_bytes = await f.read()
-                try:
-                    await asyncio.to_thread(
-                        self.ingestor.ingest,
-                        file_bytes,
-                        ct,
-                        name,
-                        user_id,
-                        session_id
-                    )
-                finally:
-                    try:
-                        await f.seek(0)
-                    except Exception:
-                        pass
+                data = await f.read()
+                await asyncio.to_thread(
+                    self.ingestor.ingest,
+                    data,
+                    ct,
+                    f.filename,
+                    user_id,
+                    session_id,
+                )
 
         # ------------------------------------------------------------
-        # 6) Bind contexto a Tools (para userdocs por session_id/user_id)
+        # 6) Bind contexto
         # ------------------------------------------------------------
         self.tools_class.bind_context(session_id=session_id, user_id=user_id, files=files)
 
         # ------------------------------------------------------------
-        # 7) Caso: subió archivos sin pregunta -> GPT pregunta “qué hacer”
+        # 7) Solo subida
         # ------------------------------------------------------------
         if only_upload:
-            nombres = ", ".join([f.filename for f in files if f.filename]) or "tus archivos"
-            output = (
-                f"Recibí: {nombres}.\n\n"
-                "¿Qué quieres hacer con estos documentos?\n"
-                "1) Resumir\n"
-                "2) Buscar algo específico\n"
-                "3) Extraer información clave\n"
-                "4) Generar un Word con un informe\n"
-            )
-
+            output = "Archivos recibidos. ¿Qué deseas hacer con ellos?"
             self.cosmosdb.save_message_chat(
                 session_id=session_id,
                 user_id=user_id,
-                user_question=mensaje_usuario or "(subida de archivos)",
+                user_question=mensaje_usuario,
                 ia_response=output,
                 channel="web",
-                extra={"mode": "only_upload"},
             )
-
             return {"reply_text": output, "session_id": session_id}
 
         # ------------------------------------------------------------
-        # 8) Memoria: recuperar historial de Cosmos
+        # 8) Historial
         # ------------------------------------------------------------
-        historial = self.cosmosdb.get_session_messages(session_id) or []
-
-        # recorta para no explotar tokens
-        historial = historial[-20:]
-
+        historial = self.cosmosdb.get_session_messages(session_id)[-20:]
         contexto_chat = ""
         for m in historial:
             contexto_chat += f"<usuario>: {m.get('UserQuestion','')}\n"
             contexto_chat += f"<asistente>: {m.get('IAResponse','')}\n"
 
         # ------------------------------------------------------------
-        # 9) Instrucción sistema para enrutar tools
+        # 9) Instrucción sistema
         # ------------------------------------------------------------
-        if files_uploaded_now:
-            nombres = ", ".join([f.filename for f in files if f.filename])
-            instruccion_sistema = (
-                f"SISTEMA: El usuario subió archivos: {nombres}. Ya están indexados.\n"
-                "- Si la pregunta es sobre documentos subidos -> tool_rag_userdocs\n"
-                "- Si es sobre el índice del compa (corpus/jurisprudencia) -> tool_rag_corpus\n"
-                "- Si pide descargar/generar -> tool_generar_word\n"
-                "- Si es charla -> tool_conversacional\n"
-            )
-        else:
-            instruccion_sistema = (
-                "SISTEMA: No hay archivos nuevos.\n"
-                "- Si la pregunta es sobre documentos subidos -> tool_rag_userdocs\n"
-                "- Si es sobre el índice del compa (corpus/jurisprudencia) -> tool_rag_corpus\n"
-                "- Si pide descargar/generar -> tool_generar_word\n"
-                "- Si es charla -> tool_conversacional\n"
-            )
+        instruccion_sistema = (
+            "SISTEMA:\n"
+            "- Documentos subidos -> tool_rag_userdocs\n"
+            "- Corpus jurídico -> tool_rag_corpus\n"
+            "- Word -> tool_generar_word\n"
+            "- Charla -> tool_conversacional\n"
+        )
+
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        # >>> AJUSTE FABRIC: PRECONSULTA CUANDO NO HAY ARCHIVOS <<<
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        contexto_fabric = ""
+        if not files_uploaded_now:
+            try:
+                resultado = self.rag_corpus.query(
+                    question=mensaje_usuario,
+                    top_k=5
+                )
+                if isinstance(resultado, str):
+                    contexto_fabric = resultado
+                elif isinstance(resultado, list):
+                    contexto_fabric = "\n".join(
+                        [r.get("content", "") for r in resultado]
+                    )
+            except Exception:
+                contexto_fabric = ""
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
         input_modelo = f"""
-            Historial:
-            {contexto_chat}
+Historial:
+{contexto_chat}
 
-            {instruccion_sistema}
+{instruccion_sistema}
 
-            <usuario>: {mensaje_usuario}
-            <asistente>:
-            """
+CONTEXTO JURÍDICO DEL CORPUS (Fabric):
+{contexto_fabric if contexto_fabric else "Sin contexto adicional."}
+
+<usuario>: {mensaje_usuario}
+<asistente>:
+"""
 
         # ------------------------------------------------------------
         # 10) Ejecutar agente
         # ------------------------------------------------------------
-        respuesta = await asyncio.to_thread(self.agent.invoke, {"input": input_modelo})
+        respuesta = await asyncio.to_thread(
+            self.agent.invoke,
+            {"input": input_modelo}
+        )
 
         raw_output = respuesta.get("output")
-
-        # si el tool devuelve dict (return_direct=True) aquí llega dict
-        if isinstance(raw_output, str):
-            output = raw_output.strip()
-        else:
-            output = raw_output  # dict u otro tipo
+        output = raw_output if isinstance(raw_output, str) else json.dumps(raw_output, ensure_ascii=False)
 
         # ------------------------------------------------------------
         # 11) Guardar en Cosmos
         # ------------------------------------------------------------
-        # Cosmos espera string, entonces si viene dict lo serializamos
-        output_to_save = output if isinstance(output, str) else json.dumps(output, ensure_ascii=False)
-
         self.cosmosdb.save_message_chat(
             session_id=session_id,
             user_id=user_id,
             user_question=mensaje_usuario,
-            ia_response=output_to_save,
+            ia_response=output,
             channel="web",
             extra={"tools": str(respuesta.get("intermediate_steps"))},
         )
 
         return {"reply_text": output, "session_id": session_id}
 
-#endregion
+# endregion
+
+
+# # -----------------------------------------------------------------------------
+# # region           IMPORTACIONES
+# # -----------------------------------------------------------------------------
+# import uuid
+# import asyncio
+# import json
+# from pathlib import Path
+# from typing import Optional, List
+# from fastapi import UploadFile, HTTPException
+# from dotenv import load_dotenv, find_dotenv
+# from langchain_openai import AzureChatOpenAI
+# from langchain.agents import initialize_agent, Tool
+# from langchain.agents.agent_types import AgentType
+# from app.config import settings
+# from helpers.tools import Tools
+# from core.ai_services import AIServices
+# from helpers.prompts import system_prompt_agente
+# from helpers.read_service import DocumentIntelligenceExtractor, TextCleaner
+# from helpers.indexacion import AzureSearchIndexer, FabricSearchIndexer, Chunker
+# from helpers.document_generator import  DocxTemplateBuilder, DocumentGeneratorService
+# from helpers.ingestion import IngestionService
+# from core.rag_service import RAGFabricService, RAGService
+# from helpers.indexacion import EmbeddingService  
+# from utils.functions import Functions
+
+# load_dotenv(find_dotenv(), override=True)
+# #endregion
+
+# # -----------------------------------------------------------------------------
+# # region           VARIABLES DE CONDICION
+# # -----------------------------------------------------------------------------
+# MAX_CONVERSATIONS_PER_USER = 10
+# MAX_FILES_PER_SESSION = 40
+# ALLOWED_CT = {
+#     "application/pdf",
+#     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+# }
+# #endregion
+
+# # -----------------------------------------------------------------------------
+# # region           RUTA DE TEMPLATE
+# # -----------------------------------------------------------------------------
+# BASE_DIR = Path(__file__).resolve().parent 
+# template_path = (BASE_DIR.parent / "templates" / "Documento_Consejo_Estado_template.docx").resolve()
+# #endregion
+
+# # -----------------------------------------------------------------------------
+# # region           CLASE ORQUESTADOR
+# # -----------------------------------------------------------------------------
+# class Orchestrator:
+#     # ------------------------------------------------------------
+#     # 1) Funciones de inicializacion
+#     # ------------------------------------------------------------
+#     def __init__(self): 
+#         self.llm = AzureChatOpenAI(
+#             api_key=settings.AZURE_OPENAI_KEY,
+#             azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+#             api_version=settings.AZURE_OPENAI_OPENAI_VERSION,
+#             deployment_name=settings.AZURE_OPENAI_CHAT_DEPLOYMENT,
+#             temperature=0.4,
+#         ) 
+#         self.extractor = DocumentIntelligenceExtractor()
+#         self.cleaner = TextCleaner()
+#         self.chunker = Chunker(max_tokens=900, overlap=150)
+#         self.embedder = EmbeddingService()
+#         self.function = Functions()
+#         self.cosmosdb = AIServices.AzureCosmosDB()
+#         self.corpus_indexer = FabricSearchIndexer()
+#         self.search_manager = AzureSearchIndexer()
+#         self.rag_corpus = RAGFabricService(embedder=self.embedder, indexer=self.corpus_indexer)
+#         self.rag_userdocs = RAGService(embedder=self.embedder, indexer=self.search_manager)
+#         self.doc = DocxTemplateBuilder (str(template_path))
+#         self.doc_generator = DocumentGeneratorService(
+#             llm_chat=self.llm,
+#             embedder=self.embedder,
+#             indexer_userdocs=self.search_manager,
+#             indexer_corpus=self.corpus_indexer,
+#             docx_builder=self.doc,
+#         )
+#         self.ingestor = IngestionService(
+#             extractor=self.extractor,
+#             cleaner=self.cleaner,
+#             chunker=self.chunker,
+#             embedder=self.embedder,
+#             indexer=self.search_manager,
+#         )
+#         self.tools_class = Tools(
+#             rag_userdocs=self.rag_userdocs,  
+#             rag_corpus=self.rag_corpus,       
+#             llm_chat=self.llm,
+#             doc_generator= self.doc_generator,
+#             cosmosdb = self.cosmosdb,
+#         )
+
+#         # ------------------------------------------------------------
+#         # 2) Tools - decisiones
+#         # ------------------------------------------------------------
+#         self.tools = [
+#             Tool.from_function(
+#                 func=self.tools_class.tool_rag_userdocs,
+#                 name="tool_rag_userdocs",
+#                 description=(
+#                     "Usa esta herramienta cuando la pregunta sea sobre documentos SUBIDOS por el usuario "
+#                     "en la sesión actual. Ej: 'este documento', 'lo que subí', 'adjunto', "
+#                     "'resume el archivo', 'qué dice el documento sobre...'."
+#                 ),
+#             ),
+#             Tool.from_function(
+#                 func=self.tools_class.tool_rag_fabric,
+#                 name="tool_rag_corpus",
+#                 description=(
+#                     "Usa esta herramienta cuando la pregunta sea sobre el CORPUS/JURISPRUDENCIA "
+#                     "(índice del compa). Ej: 'CSJ', 'jurisprudencia', 'sentencia', 'radicado', "
+#                     "'actor demandado', 'problema jurídico'."
+#                 ),
+#             ),
+#             Tool.from_function(
+#                 func=self.tools_class.tool_conversacional,
+#                 name="tool_conversacional",
+#                 description="Usa esta herramienta para saludos, despedidas o charla que NO requiera consultar índices."
+#             ),
+#             Tool.from_function(
+#                 func=self.tools_class.tool_word,
+#                 name="tool_generar_word",
+#                 description=(
+#                     "Usa esta herramienta ÚNICAMENTE cuando el usuario pida descargar/crear/generar/exportar "
+#                     "un archivo Word."
+#                 ),
+#                 return_direct=True,
+#             ),
+#         ]
+
+#         # ------------------------------------------------------------
+#         # 3) Inicializacion de agente - tipo de agente
+#         # ------------------------------------------------------------
+#         self.agent = initialize_agent(
+#             tools=self.tools,
+#             llm=self.llm,
+#             agent=AgentType.OPENAI_FUNCTIONS,
+#             verbose=True,
+#             handle_parsing_errors=True,
+#             agent_kwargs={"system_message": system_prompt_agente},
+#         )
+# #endregion
+
+# # -----------------------------------------------------------------------------
+# # region           MÉTODO PRINCIPAL:EJECUTAR AGENTE
+# # -----------------------------------------------------------------------------
+#     async def ejecutar_agente(
+#         self,
+#         mensaje_usuario: str,
+#         user_id: str,
+#         session_id: Optional[str] = None,
+#         files: Optional[List[UploadFile]] = None,
+#     ) -> dict:
+
+#         # ------------------------------------------------------------
+#         # 1) Validación usuario
+#         # ------------------------------------------------------------
+#         if not user_id:
+#             raise HTTPException(status_code=401, detail="Usuario no autenticado.")
+
+#         # ------------------------------------------------------------
+#         # 2) Sesión nueva + límite 10 conversaciones
+#         # ------------------------------------------------------------
+#         if not session_id:
+#             user_sessions = self.cosmosdb.get_user_sessions(user_id)
+#             if len(user_sessions) >= MAX_CONVERSATIONS_PER_USER:
+#                 raise HTTPException(
+#                     status_code=409,
+#                     detail=f"Límite alcanzado: máximo {MAX_CONVERSATIONS_PER_USER} conversaciones por usuario."
+#                 )
+#             session_id = str(uuid.uuid4())
+
+#         files = files or []
+#         files_uploaded_now = len(files) > 0
+
+#         # ------------------------------------------------------------
+#         # 3) Validación límite 40 archivos por sesión
+#         # ------------------------------------------------------------
+#         if files_uploaded_now:
+#             existing_files = self.cosmosdb.count_uploaded_files(session_id)
+#             if existing_files + len(files) > MAX_FILES_PER_SESSION:
+#                 raise HTTPException(
+#                     status_code=409,
+#                     detail=f"Límite de archivos alcanzado ({MAX_FILES_PER_SESSION} máx). Ya tienes {existing_files}."
+#                 )
+
+#         # ------------------------------------------------------------
+#         # 4) Detectar si es solo subida (sin pregunta real)
+#         # ------------------------------------------------------------
+#         only_upload = False
+#         if files_uploaded_now:
+#             if self.function.key_words(mensaje_usuario):
+#                 only_upload = True
+#             else:
+#                 # Zona gris: si el mensaje es corto o ambiguo, que decida el LLM
+#                 t = (mensaje_usuario or "").strip()
+#                 if len(t) < 40 and "?" not in t:
+#                     only_upload = await self.function.llm_detect(t,self.llm)
+
+#         # ------------------------------------------------------------
+#         # 5) Ingesta
+#         # ------------------------------------------------------------
+#         if files_uploaded_now:
+#             for f in files:
+#                 ct = (f.content_type or "").lower()
+#                 name = f.filename or "archivo"
+
+#                 if ct not in ALLOWED_CT:
+#                     raise HTTPException(status_code=400, detail=f"Tipo no permitido: {name} ({ct})")
+
+#                 file_bytes = await f.read()
+#                 try:
+#                     await asyncio.to_thread(
+#                         self.ingestor.ingest,
+#                         file_bytes,
+#                         ct,
+#                         name,
+#                         user_id,
+#                         session_id
+#                     )
+#                 finally:
+#                     try:
+#                         await f.seek(0)
+#                     except Exception:
+#                         pass
+
+#         # ------------------------------------------------------------
+#         # 6) Bind contexto a Tools (para userdocs por session_id/user_id)
+#         # ------------------------------------------------------------
+#         self.tools_class.bind_context(session_id=session_id, user_id=user_id, files=files)
+
+#         # ------------------------------------------------------------
+#         # 7) Caso: subió archivos sin pregunta -> GPT pregunta “qué hacer”
+#         # ------------------------------------------------------------
+#         if only_upload:
+#             nombres = ", ".join([f.filename for f in files if f.filename]) or "tus archivos"
+#             output = (
+#                 f"Recibí: {nombres}.\n\n"
+#                 "¿Qué quieres hacer con estos documentos?\n"
+#                 "1) Resumir\n"
+#                 "2) Buscar algo específico\n"
+#                 "3) Extraer información clave\n"
+#                 "4) Generar un Word con un informe\n"
+#             )
+
+#             self.cosmosdb.save_message_chat(
+#                 session_id=session_id,
+#                 user_id=user_id,
+#                 user_question=mensaje_usuario or "(subida de archivos)",
+#                 ia_response=output,
+#                 channel="web",
+#                 extra={"mode": "only_upload"},
+#             )
+
+#             return {"reply_text": output, "session_id": session_id}
+
+#         # ------------------------------------------------------------
+#         # 8) Memoria: recuperar historial de Cosmos
+#         # ------------------------------------------------------------
+#         historial = self.cosmosdb.get_session_messages(session_id) or []
+
+#         # recorta para no explotar tokens
+#         historial = historial[-20:]
+
+#         contexto_chat = ""
+#         for m in historial:
+#             contexto_chat += f"<usuario>: {m.get('UserQuestion','')}\n"
+#             contexto_chat += f"<asistente>: {m.get('IAResponse','')}\n"
+
+#         # ------------------------------------------------------------
+#         # 9) Instrucción sistema para enrutar tools
+#         # ------------------------------------------------------------
+#         if files_uploaded_now:
+#             nombres = ", ".join([f.filename for f in files if f.filename])
+#             instruccion_sistema = (
+#                 f"SISTEMA: El usuario subió archivos: {nombres}. Ya están indexados.\n"
+#                 "- Si la pregunta es sobre documentos subidos -> tool_rag_userdocs\n"
+#                 "- Si es sobre el índice del compa (corpus/jurisprudencia) -> tool_rag_corpus\n"
+#                 "- Si pide descargar/generar -> tool_generar_word\n"
+#                 "- Si es charla -> tool_conversacional\n"
+#             )
+#         else:
+#             instruccion_sistema = (
+#                 "SISTEMA: No hay archivos nuevos.\n"
+#                 "- Si la pregunta es sobre documentos subidos -> tool_rag_userdocs\n"
+#                 "- Si es sobre el índice del compa (corpus/jurisprudencia) -> tool_rag_corpus\n"
+#                 "- Si pide descargar/generar -> tool_generar_word\n"
+#                 "- Si es charla -> tool_conversacional\n"
+#             )
+
+#         input_modelo = f"""
+#             Historial:
+#             {contexto_chat}
+
+#             {instruccion_sistema}
+
+#             <usuario>: {mensaje_usuario}
+#             <asistente>:
+#             """
+
+#         # ------------------------------------------------------------
+#         # 10) Ejecutar agente
+#         # ------------------------------------------------------------
+#         respuesta = await asyncio.to_thread(self.agent.invoke, {"input": input_modelo})
+
+#         raw_output = respuesta.get("output")
+
+#         # si el tool devuelve dict (return_direct=True) aquí llega dict
+#         if isinstance(raw_output, str):
+#             output = raw_output.strip()
+#         else:
+#             output = raw_output  # dict u otro tipo
+
+#         # ------------------------------------------------------------
+#         # 11) Guardar en Cosmos
+#         # ------------------------------------------------------------
+#         # Cosmos espera string, entonces si viene dict lo serializamos
+#         output_to_save = output if isinstance(output, str) else json.dumps(output, ensure_ascii=False)
+
+#         self.cosmosdb.save_message_chat(
+#             session_id=session_id,
+#             user_id=user_id,
+#             user_question=mensaje_usuario,
+#             ia_response=output_to_save,
+#             channel="web",
+#             extra={"tools": str(respuesta.get("intermediate_steps"))},
+#         )
+
+#         return {"reply_text": output, "session_id": session_id}
+
+# #endregion
