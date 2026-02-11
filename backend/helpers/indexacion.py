@@ -8,6 +8,13 @@ from azure.search.documents.models import VectorizedQuery
 from azure.search.documents import SearchClient
 from app.config import settings
 
+from azure.search.documents.indexes.models import (
+    SearchIndex, SearchField, SearchFieldDataType,
+    VectorSearch, VectorSearchProfile, HnswAlgorithmConfiguration,
+    SemanticConfiguration, SemanticPrioritizedFields, SemanticField,
+    SimpleField
+)
+
 
 class AzureSearchIndexer:
     def __init__(self) -> None:
@@ -169,21 +176,44 @@ class FabricSearchIndexer:
     #     print(resultados)
 
 
-    def hybrid_search(self, question: str, query_vector: list[float], top_k: int = 10) -> list[dict]:
-        vq = VectorizedQuery(
-            vector=query_vector,
-            k_nearest_neighbors=top_k,
-            fields="texto_vector",
-        )
+    # def hybrid_search(self, question: str, query_vector: list[float], top_k: int = 10) -> list[dict]:
+    #     vq = VectorizedQuery(
+    #         vector=query_vector,
+    #         k_nearest_neighbors=top_k,
+    #         fields="texto_vector",
+    #     )
 
-        results = self.client.search(
-            search_text=question,
-            vector_queries=[vq],
-            query_type="semantic",
-            semantic_configuration_name="semantic_config",
-            top=top_k,
-        )
-        return [r for r in results]
+
+
+    def hybrid_search(self, question: str, query_vector: list[float], top_k: int = 10) -> list[dict]:
+            vq = VectorizedQuery(
+                vector=query_vector,
+                k_nearest_neighbors=top_k,
+                fields="texto_vector",
+            )
+
+
+            results = self.client.search(
+                search_text=question,
+                search_mode="any",
+                top=top_k,
+                vector_queries=[vq],
+                query_type="semantic",   # 👈 usar semantic
+                semantic_configuration_name="semantic-config",  # 👈 nombre EXACTO
+                select=[
+                    "TEXTOPROVIDENCIA"
+                ],
+            )
+            return [r for r in results]
+
+        # results = self.client.search(
+        #     search_text=question,
+        #     vector_queries=[vq],
+        #     query_type="simple",
+        #     semantic_configuration_name="semantic_config",
+        #     top=top_k,
+        # )
+        # return [r for r in results]
 
 
     # def hybrid_search(self, question: str, query_vector: list[float], top_k: int = 10) -> list[dict]:

@@ -142,12 +142,8 @@ class RAGFabricService:
         
         print("################## HITS FABRIC: ###############################", len(hits))
 
-        print("################## CONTEXT PREVIEW ###############################")
-        print(context[:1000])
-
-
         context = "\n\n".join(
-            f"[{h.get('tipo_documento','')} | {h.get('ACTOR','')} | chunk {h.get('chunk_order')}] {h.get('texto','')}"
+            f"[{h.get('tipo_documento','')} | {h.get('ACTOR','')} | chunk {h.get('chunk_order')}] {h.get('TEXTOPROVIDENCIA','')}"
             for h in hits
         ).strip()
 
