@@ -172,16 +172,16 @@ class FabricSearchIndexer:
     def hybrid_search(self, question: str, query_vector: list[float], top_k: int = 10) -> list[dict]:
         vq = VectorizedQuery(
             vector=query_vector,
-            # k_nearest_neighbors=top_k,
+            k_nearest_neighbors=top_k,
             fields="texto_vector",
         )
 
         results = self.client.search(
             search_text=question,
-            query_type="semantic",
-            top=top_k,
-            semantic_configuration_name="semantic_config",
             vector_queries=[vq],
+            query_type="semantic",
+            semantic_configuration_name="semantic_config",
+            top=top_k,
         )
         return [r for r in results]
 

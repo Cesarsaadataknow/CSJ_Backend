@@ -43,7 +43,7 @@ class Tools:
         return getattr(resp, "content", str(resp)).strip()
 
     # ---------------------------------------------------------------------
-    # TOOL 2: RAG sobre documentos adjuntos
+    # TOOL 2: RAG sobre documentos adjuntos (api/upload)
     # ---------------------------------------------------------------------
     def tool_rag_userdocs(self, query: str) -> str:
         print("📄 USANDO USERDOCS")
@@ -59,7 +59,7 @@ class Tools:
         return (res.get("answer") or "").strip()
 
     # ---------------------------------------------------------------------
-    # TOOL 3: RAG sobre índice desde fabric
+    # TOOL 3: RAG sobre índice desde fabric (api/ask)
     # ---------------------------------------------------------------------
     def tool_rag_fabric(self, query: str) -> str:
         print("🔥 USANDO FABRIC")
