@@ -139,6 +139,12 @@ class RAGFabricService:
             query_vector=qvec,
             top_k=top_k
         )
+        
+        print("################## HITS FABRIC: ###############################", len(hits))
+
+        print("################## CONTEXT PREVIEW ###############################")
+        print(context[:1000])
+
 
         context = "\n\n".join(
             f"[{h.get('tipo_documento','')} | {h.get('ACTOR','')} | chunk {h.get('chunk_order')}] {h.get('texto','')}"
@@ -146,8 +152,11 @@ class RAGFabricService:
         ).strip()
 
         system = (
-            "Responde SOLO con base en el CONTEXTO (CORPUS). No inventes. "
-            "Si no está en el contexto, responde: 'No encuentro esa información en el corpus'."
+            "Responde usando EXCLUSIVAMENTE la información del CONTEXTO (CORPUS).\n"
+            "Puedes parafrasear y sintetizar.\n"
+            "Si hay información relacionada aunque no use exactamente las mismas palabras, úsala.\n"
+            "Solo responde que no encuentras información si realmente no existe contenido relacionado.\n"
+            "No inventes datos fuera del contexto."
         )
 
         user = f"CONTEXTO:\n{context}\n\nPREGUNTA:\n{question}"

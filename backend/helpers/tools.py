@@ -46,6 +46,7 @@ class Tools:
     # TOOL 2: RAG sobre documentos adjuntos
     # ---------------------------------------------------------------------
     def tool_rag_userdocs(self, query: str) -> str:
+        print("📄 USANDO USERDOCS")
         if not self.user_id or not self.session_id:
             return "No tengo user_id/session_id para buscar en documentos adjuntos."
 
@@ -61,6 +62,7 @@ class Tools:
     # TOOL 3: RAG sobre índice desde fabric
     # ---------------------------------------------------------------------
     def tool_rag_fabric(self, query: str) -> str:
+        print("🔥 USANDO FABRIC")
         res = self.rag_corpus.answer(
             question=query,
             top_k=12

@@ -127,25 +127,87 @@ class FabricSearchIndexer:
             credential=AzureKeyCredential(settings.AZURE_SEARCH_KEY),
         )
 
+    # def hybrid_search(self, pregunta_usuario):
+    #     """
+    #     Función que realiza una búsqueda híbrida (semántica + vectorial) en Azure Search
+    #     y genera una respuesta amigable con GPT a partir de los resultados.
+    #     """
+
+    #     # Obtener configuración desde variables de entorno
+    #     endpoint = os.getenv("AZURE_SEARCH_ENDPOINT")
+    #     api_key = os.getenv("AZURE_SEARCH_API_KEY")
+    #     index_name = os.getenv("AZURE_SEARCH_INDEX_NAME")
+    #     semantic_config_name = "semantic-config"
+
+    #     if not all([endpoint, api_key, index_name]):
+    #         raise ValueError("Faltan variables de entorno para Azure Search")                                              
+
+    #     # Embedding de la pregunta
+    #     embedding_query = self.embedder.generar_embedding(pregunta_usuario)
+
+    #     # Crear cliente de búsqueda
+    #     client = SearchClient(
+    #         endpoint=endpoint,
+    #         index_name=index_name,
+    #         credential=AzureKeyCredential(api_key)
+    #     )
+
+    #     # Preparar búsqueda híbrida usando VectorizedQuery
+    #     vector_query = VectorizedQuery(
+    #         vector=embedding_query,
+    #         fields="embedding_resumen"
+    #     )
+
+    #     # Ejecutar búsqueda híbrida 
+    #     resultados = list(client.search(
+    #         search_text=pregunta_usuario,
+    #         vector_queries=[vector_query],
+    #         query_type="hibrid",
+    #         semantic_configuration_name=semantic_config_name,
+    #         top=3
+    #     ))
+    #     print(resultados)
+
+
     def hybrid_search(self, question: str, query_vector: list[float], top_k: int = 10) -> list[dict]:
         vq = VectorizedQuery(
             vector=query_vector,
-            k_nearest_neighbors=top_k,
+            # k_nearest_neighbors=top_k,
             fields="texto_vector",
         )
 
         results = self.client.search(
             search_text=question,
-            search_mode="any",
+            query_type="semantic",
             top=top_k,
+            semantic_configuration_name="semantic_config",
             vector_queries=[vq],
-            select=[
-                "id", "texto", "chunk_order",
-                "tipo_documento", "NaturalezaProceso", "claseProceso",
-                "ACTOR", "DEMANDADO", "DECISION", "ProblemaJuridico"
-            ],
         )
         return [r for r in results]
+
+
+    # def hybrid_search(self, question: str, query_vector: list[float], top_k: int = 10) -> list[dict]:
+    #     vq = VectorizedQuery(
+    #         vector=query_vector,
+    #         k_nearest_neighbors=top_k,
+    #         fields="texto_vector",
+    #     )
+
+
+    #     results = self.client.search(
+    #         search_text=question,
+    #         search_mode="any",
+    #         top=top_k,
+    #         vector_queries=[vq],
+    #         select=[
+    #             "id", "texto", "chunk_order",
+    #             "tipo_documento", "NaturalezaProceso", "claseProceso",
+    #             "ACTOR", "DEMANDADO", "DECISION", "ProblemaJuridico"
+    #         ],
+    #     )
+    #     return [r for r in results]
+
+
 
 
 class EmbeddingService:
