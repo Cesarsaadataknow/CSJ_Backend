@@ -131,21 +131,45 @@ class RAGFabricService:
             api_version=settings.AZURE_OPENAI_OPENAI_VERSION,
         )
 
+    def _hit_text(self, h: dict) -> str:
+        if h.get("_source_index") == "fabric":
+            return (h.get("TEXTOPROVIDENCIA") or "").strip()
+        contenido = (h.get("contenido") or "").strip()
+        regla = (h.get("regla") or "").strip()
+
+        if regla and contenido:
+            return f"REGLA: {regla}\nCONTENIDO: {contenido}"
+        return contenido or regla
+
     def answer(self, question: str, top_k: int = 10) -> dict:
         qvec = self.embedder.embed(question)
-
         hits = self.indexer.hybrid_search(
             question=question,
             query_vector=qvec,
             top_k=top_k
         )
-        
-        print("################## HITS FABRIC: ###############################", len(hits))
 
-        context = "\n\n".join(
-            f"[{h.get('tipo_documento','')} | {h.get('ACTOR','')} | chunk {h.get('chunk_order')}] {h.get('TEXTOPROVIDENCIA','')}"
-            for h in hits
-        ).strip()
+        print("################## HITS TOTAL (FABRIC+XLS): ###############################", len(hits))
+
+        normalized = []
+        for h in hits:
+            d = dict(h)
+            d["_text"] = self._hit_text(d)
+            if d["_text"]:
+                normalized.append(d)
+
+        parts = []
+        for h in normalized:
+            if h.get("_source_index") == "fabric":
+                parts.append(
+                    f"[fabric | {h.get('tipo_documento','')} | {h.get('ACTOR','')} | chunk {h.get('chunk_order','')}] {h.get('_text','')}"
+                )
+            else:
+                parts.append(
+                    f"[xls | categoria={h.get('categoria','')} | tema={h.get('tema','')} | norma={h.get('norma_fuente','')}] {h.get('_text','')}"
+                )
+
+        context = "\n\n".join(parts).strip()
 
         system = (
             "Responde usando EXCLUSIVAMENTE la información del CONTEXTO (CORPUS).\n"
@@ -169,7 +193,11 @@ class RAGFabricService:
         return {
             "answer": resp.choices[0].message.content,
             "chunks_used": [
-                {"id": h.get("id"), "chunk_order": h.get("chunk_order")}
-                for h in hits
+                {
+                    "id": h.get("id"),
+                    "source_index": h.get("_source_index"),
+                }
+                for h in normalized
             ],
         }
+

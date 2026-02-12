@@ -51,8 +51,6 @@ async def ask(
         session_id=data.session_id,
         files=None,
     )
-
-    # Si return_direct=True, reply_text puede ser dict (según versión/langchain)
     reply = res.get("reply_text")
 
     if isinstance(reply, dict) and reply.get("doc_id"):
@@ -85,9 +83,11 @@ async def ask(
     "answer": reply if isinstance(reply, str) else json.dumps(reply, ensure_ascii=False),
     "session_id": res.get("session_id"),
 }
-
 # endregion
 
+# -----------------------------------------------------------------------------
+# region               ENDPOINT: CARGA DE ARCHIVOS
+# -----------------------------------------------------------------------------
 @chat_router.post("/upload")
 async def upload(
     session_id: Optional[str] = None,
@@ -126,8 +126,11 @@ async def upload(
         files=files,
     )
     return res
+# endregion
 
-
+# -----------------------------------------------------------------------------
+# region               ENDPOINT: DESCARGA DE ARCHIVOS
+# -----------------------------------------------------------------------------
 @download_router.get("/download/doc/{doc_id}")
 async def download_docx_by_id(doc_id: str, user: User = Depends(auth_manager)):
     user_id = user.email 
@@ -150,6 +153,7 @@ async def download_docx_by_id(doc_id: str, user: User = Depends(auth_manager)):
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+# endregion
 
 # -----------------------------------------------------------------------------
 # region           ENDPOINT: OBTENER SESIONES DE USUARIO
