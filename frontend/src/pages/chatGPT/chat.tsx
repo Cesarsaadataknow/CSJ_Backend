@@ -25,7 +25,7 @@ import {
 import ListFile from "@/components/custom/ListFile";
 import { Button } from "@/components/ui/button";
 import UseLogout from "@/hooks/useLogout";
-
+ 
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -34,7 +34,7 @@ interface Message {
   rate: null | number;
   linkFile: string;
 }
-
+ 
 type props = {
   newChat?: boolean;
   setChats: Dispatch<SetStateAction<ChatInterface[]>>;
@@ -42,7 +42,7 @@ type props = {
   allMsgs: Record<string, Message[]>;
   setAllMsg: Dispatch<SetStateAction<Record<string, Message[]>>>;
 };
-
+ 
 export function Chat({
   newChat = false,
   setChats,
@@ -64,14 +64,14 @@ export function Chat({
   const navigate = useNavigate();
   const isStop = useRef<boolean>(false);
   const { logout, user } = UseLogout();
-
+ 
   const pushMessage = (msg: Message, idChatValue: string | null = null) => {
     setAllMsg((prev: any) => ({
       ...prev,
       [idChatValue || idChat]: [...(prev[idChatValue || idChat] || []), msg],
     }));
   };
-
+ 
   const updateMessageText = (messageId: string, text: string) => {
     const allMsgCopy = {
       ...allMsgs,
@@ -82,14 +82,14 @@ export function Chat({
     setAllMsg(allMsgCopy);
     handleEdit(messageId, allMsgCopy);
   };
-
+ 
   const formatText = (answer: any) => {
     if (typeof answer == "object") {
       return Object.values(answer).filter(Boolean).join("\n\n\n\n");
     }
     return answer;
   };
-
+ 
   const migrateTempToReal = (
     tempId: string,
     realId: string,
@@ -113,10 +113,10 @@ export function Chat({
         ...prev,
       ];
     });
-
+ 
     navigate(`c/${realId}`);
   };
-
+ 
   const handleSubmit = async ({
     text = "",
     idMessageCorrected = "",
@@ -129,17 +129,17 @@ export function Chat({
     files: File[] | null;
   }) => {
     if (isLoading) return;
-
+ 
     const messageId = idMessageCorrected || uuidv4();
     const DESIRED_LENGTH = 28;
     const messageText = text;
-
+ 
     const idChatLocal = idChat;
     const isTempChat = idChatLocal.startsWith("temp-");
-
+ 
     const isChatIndex = chats.findIndex((chat) => chat.chatId == idChatLocal);
     const hasFiles = !!files?.length;
-
+ 
     const titleChat =
       isChatIndex >= 0
         ? chats[isChatIndex].title
@@ -150,7 +150,7 @@ export function Chat({
           : hasFiles
             ? "Subida de archivos"
             : "Nueva conversación";
-
+ 
     if (!is_regenerate) {
       pushMessage(
         {
@@ -164,22 +164,22 @@ export function Chat({
         idChatLocal,
       );
     }
-
+ 
     setIsLoading(true);
-
+ 
     try {
       let assistantText = "";
       let linkFile = "";
       let realSessionIdFromBackend: string | null = null;
-
+ 
       if (files?.length) {
         const formData = new FormData();
         formData.append("session_id", idChatLocal);
-
+ 
         files.forEach((fileObj: any) => {
           formData.append("files", fileObj);
         });
-
+ 
         const res = await api.requestAttachment(files, idChatLocal);
         assistantText = formatText(res.reply_text);
         linkFile = res.doc_id || "";
@@ -189,17 +189,17 @@ export function Chat({
           question: text,
           session_id: isTempChat ? null : idChatLocal,
         });
-
+ 
         assistantText = formatText(res.answer);
         linkFile = res.doc_id || "";
         realSessionIdFromBackend = res.session_id || null;
       }
-
+ 
       if (isStop.current) {
         isStop.current = false;
         return;
       }
-
+ 
       pushMessage(
         {
           id: messageId,
@@ -211,11 +211,11 @@ export function Chat({
         },
         idChatLocal,
       );
-
+ 
       if (isTempChat && realSessionIdFromBackend) {
         migrateTempToReal(idChatLocal, realSessionIdFromBackend, titleChat);
       }
-
+ 
       if (newChat) {
         setChats((prev) => [
           {
@@ -230,7 +230,7 @@ export function Chat({
     } catch (error: any) {
       const status = error?.response?.status;
       const detail = error?.response?.data?.detail;
-
+ 
       if (status === 409) {
         const msg = detail || "Límite alcanzado.";
         toast.error(msg);
@@ -242,12 +242,12 @@ export function Chat({
         }));
         return;
       }
-
+ 
       if (status === 401 || status === 403) {
         logout(error?.response?.statusText || "");
         return;
       }
-
+ 
       pushMessage(
         {
           id: messageId,
@@ -264,7 +264,7 @@ export function Chat({
       setFiles([]);
     }
   };
-
+ 
   const handleCopy = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -273,28 +273,28 @@ export function Chat({
       toast?.error("No se pudo copiar el texto");
     }
   };
-
+ 
   const startEditing = (msg: Message) => {
     setEditingId(msg.id);
     setEditText(msg.answer);
   };
-
+ 
   const cancelEditing = () => {
     setEditingId(null);
     setEditText("");
   };
-
+ 
   const saveEdit = () => {
     if (!editingId) return;
     updateMessageText(editingId, editText);
     toast.success("Mensaje actualizado");
     setEditingId(null);
   };
-
+ 
   const getMessages = (sessionId: string) => {
     if (allMsgs[sessionId]) return;
     setIsLoadingChat(true);
-
+ 
     api
       .requestOneSession(sessionId)
       .then((res: ConversationDetailResponse) => {
@@ -328,16 +328,16 @@ export function Chat({
       })
       .finally(() => setIsLoadingChat(false));
   };
-
+ 
   const handleRegenerate = (id: string) => {
     const messages = allMsgs[idChat] ?? [];
     const index = messages.findIndex(
       (msg) => msg.id == id && msg.role == "assistant",
     );
     const userMsg = messages[index - 1];
-
+ 
     removeFromSpecificToEnd(index);
-
+ 
     handleSubmit({
       text: userMsg.answer,
       idMessageCorrected: userMsg.id,
@@ -345,17 +345,17 @@ export function Chat({
       files: null,
     });
   };
-
+ 
   const handleEdit = (id: string, data: Record<string, Message[]>) => {
     const messages = [...(data[idChat] ?? [])];
     const index = messages.findIndex(
       (msg) => msg.id == id && msg.role == "user",
     );
-
+ 
     const userMsg = messages[index];
-
+ 
     removeFromSpecificToEnd(index + 1);
-
+ 
     handleSubmit({
       text: userMsg.answer,
       idMessageCorrected: userMsg.id,
@@ -363,14 +363,14 @@ export function Chat({
       files: null,
     });
   };
-
+ 
   const removeFromSpecificToEnd = (i: number) => {
     setAllMsg((prev) => ({
       ...prev,
       [idChat]: (prev[idChat] || []).slice(0, i),
     }));
   };
-
+ 
   useEffect(() => {
     if (id) {
       setIdChat(id);
@@ -379,7 +379,7 @@ export function Chat({
       setIdChat(`${uuidv4()}`);
     }
   }, [id]);
-
+ 
   const handleStop = async () => {
     isStop.current = true;
     setIsLoading(false);
@@ -392,7 +392,7 @@ export function Chat({
       linkFile: "",
     });
   };
-
+ 
   const handleVote = async (
     vote: number,
     value: number | null,
@@ -416,12 +416,12 @@ export function Chat({
       }
     }
   };
-
+ 
   const endRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [allMsgs?.[idChat], isLoadingChat]);
-
+ 
   return (
     <>
       <div
@@ -430,7 +430,7 @@ export function Chat({
       >
         <div className="flex-1 text-sm space-y-2 flex flex-col">
           {isLoadingChat && <ChatSkeleton />}
-
+ 
           {newChat && (
             <div className="flex flex-1 justify-center items-center p-2">
               <h1 className="text-3xl font-bold break-all text-center">
@@ -438,7 +438,7 @@ export function Chat({
               </h1>
             </div>
           )}
-
+ 
           {!isLoadingChat &&
             (allMsgs[idChat] ?? []).map((msg, i) => (
               <Fragment key={i}>
@@ -467,7 +467,7 @@ export function Chat({
                         )}
                       </div>
                     )}
-
+ 
                     <div
                       className={`flex flex-row gap-2  ${
                         editingId === msg.id
@@ -513,7 +513,7 @@ export function Chat({
                     </div>
                   </div>
                 )}
-
+ 
                 {msg.role === "assistant" && (
                   <div>
                     <div className="text-neutral-700 w-fit max-w-8/12 rounded-2xl rounded-tr-none p-2 ia-response prose">
@@ -526,7 +526,7 @@ export function Chat({
                               node?.position?.start && node?.position?.end
                                 ? node?.tagName === "pre"
                                 : false;
-
+ 
                             if (isBlock) {
                               return (
                                 <code className="text-white">{children}</code>
@@ -538,28 +538,26 @@ export function Chat({
                       >
                         {msg.answer}
                       </ReactMarkdown>
-
+ 
                       {msg.linkFile.length ? (
                         <Button
                           onClick={async () => {
                             const token = localStorage.getItem("access_token");
                             if (!token) return;
-
+ 
                             const url = `http://localhost:8000/api/download/doc/${msg.linkFile}`;
-
-                            // const url = `https://capp-resolucion-conflictos-compe.whitesand-8bead175.eastus2.azurecontainerapps.io/api/chat/download?file=${encodeURIComponent(
-                            //   msg.linkFile
-                            // )}`;
-
+ 
+                            //const url = `https://capp-resolucion-conflictos-compe.whitesand-8bead175.eastus2.azurecontainerapps.io/api/download/doc/$%7Bmsg.linkFile%7D`;
+ 
                             const resp = await fetch(url, {
                               headers: { Authorization: `Bearer ${token}` },
                             });
-
+ 
                             if (!resp.ok) {
                               console.error("Download failed", resp.status);
                               return;
                             }
-
+ 
                             const blob = await resp.blob();
                             const a = document.createElement("a");
                             const objectUrl = URL.createObjectURL(blob);
@@ -576,7 +574,7 @@ export function Chat({
                         </Button>
                       ) : null}
                     </div>
-
+ 
                     <div className="flex flex-row">
                       <Button
                         variant="outline"
@@ -613,19 +611,19 @@ export function Chat({
                 )}
               </Fragment>
             ))}
-
+ 
           {isLoading && (
             <div className="text-center text-gray-500 italic">Pensando...</div>
           )}
           <div ref={endRef} />
         </div>
-
+ 
         <div
           ref={messagesEndRef}
           className="shrink-0 min-w-[24px] min-h-[24px]"
         />
       </div>
-
+ 
       <InputGPT
         question={question}
         setQuestion={setQuestion}
@@ -642,7 +640,7 @@ export function Chat({
     </>
   );
 }
-
+ 
 const ChatSkeleton = () => (
   <div className="p-4 space-y-6">
     <div className="flex justify-start animate-pulse">
