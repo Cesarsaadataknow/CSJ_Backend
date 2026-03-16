@@ -109,16 +109,20 @@ class AIServices:
             }
             """
             doc = {
-                "id": session_data["session_id"],          
-                "_id": session_data["session_id"],         
+                "id": session_data["session_id"],
+                "_id": session_data["session_id"],
                 "user_id": session_data.get("user_id"),
                 "modelo_ia": self.modelo_ia,
                 "version_api_ia": self.version_api_ia,
-                "message": [],                            
+                "message": [],
                 "fecha_creacion": AIServices._utc_iso(),
                 "updated_at": AIServices._utc_iso(),
                 "name_session": session_data.get("session_name", "Sesión"),
                 "channel": session_data.get("channel", "web"),
+                "active_file_ids": [],
+                "last_uploaded_batch": [],
+                "uploaded_files_registry": [],
+                "total_uploaded_files": 0,
             }
             return self.sessions_container.create_item(doc)
 
@@ -137,6 +141,12 @@ class AIServices:
                 "updated_at": AIServices._utc_iso(),
                 "name_session": session_data.get("session_name", "Sesión"),
                 "channel": session_data.get("channel", "web"),
+
+                # nuevo
+                "active_file_ids": session_data.get("active_file_ids", []),
+                "last_uploaded_batch": session_data.get("last_uploaded_batch", []),
+                "uploaded_files_registry": session_data.get("uploaded_files_registry", []),
+                "total_uploaded_files": session_data.get("total_uploaded_files", 0),
             }
             return self.sessions_container.upsert_item(doc)
 
@@ -392,3 +402,91 @@ class AIServices:
                 parameters=params,
                 enable_cross_partition_query=True 
             ))
+        
+        def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+            try:
+                return self.sessions_container.read_item(item=session_id, partition_key=session_id)
+            except exceptions.CosmosResourceNotFoundError:
+                return None
+
+
+        def save_uploaded_batch(
+            self,
+            session_id: str,
+            user_id: str,
+            uploaded_files: List[Dict[str, Any]],
+            channel: str = "web",
+        ) -> None:
+            """
+            uploaded_files esperado:
+            [
+                {
+                    "file_id": "...",
+                    "file_name": "...",
+                    "position_in_batch": 1,
+                    "global_position": 7
+                },
+                ...
+            ]
+            """
+            session = self.get_session(session_id)
+
+            if not session:
+                session_data = {
+                    "session_id": session_id,
+                    "user_id": user_id,
+                    "session_name": "Sesión",
+                    "channel": channel,
+                }
+                self.create_session(session_data)
+                session = self.get_session(session_id)
+
+            session.setdefault("uploaded_files_registry", [])
+            session.setdefault("last_uploaded_batch", [])
+            session.setdefault("active_file_ids", [])
+            session.setdefault("total_uploaded_files", 0)
+
+            registry = session["uploaded_files_registry"]
+            existing_ids = {f.get("file_id") for f in registry if f.get("file_id")}
+
+            for f in uploaded_files:
+                if f.get("file_id") and f["file_id"] not in existing_ids:
+                    registry.append(f)
+
+            session["last_uploaded_batch"] = uploaded_files
+            session["active_file_ids"] = [f["file_id"] for f in uploaded_files if f.get("file_id")]
+            session["total_uploaded_files"] = len(registry)
+            session["updated_at"] = AIServices._utc_iso()
+
+            self.sessions_container.replace_item(item=session_id, body=session)
+
+
+        def get_active_file_ids(self, session_id: str) -> List[str]:
+            session = self.get_session(session_id)
+            if not session:
+                return []
+            return session.get("active_file_ids", []) or []
+
+
+        def get_last_uploaded_batch(self, session_id: str) -> List[Dict[str, Any]]:
+            session = self.get_session(session_id)
+            if not session:
+                return []
+            return session.get("last_uploaded_batch", []) or []
+
+
+        def get_uploaded_files_registry(self, session_id: str) -> List[Dict[str, Any]]:
+            session = self.get_session(session_id)
+            if not session:
+                return []
+            return session.get("uploaded_files_registry", []) or []
+
+
+        def set_active_file_ids(self, session_id: str, file_ids: List[str]) -> None:
+            session = self.get_session(session_id)
+            if not session:
+                return
+
+            session["active_file_ids"] = file_ids or []
+            session["updated_at"] = AIServices._utc_iso()
+            self.sessions_container.replace_item(item=session_id, body=session)

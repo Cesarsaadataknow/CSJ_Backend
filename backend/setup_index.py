@@ -1,7 +1,5 @@
-# setup_index.py (en la raíz: backend/setup_index.py)
 from __future__ import annotations
 
-import sys
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.indexes import SearchIndexClient
 from azure.search.documents.indexes.models import (
@@ -13,6 +11,10 @@ from azure.search.documents.indexes.models import (
     VectorSearch,
     HnswAlgorithmConfiguration,
     VectorSearchProfile,
+    SemanticConfiguration,
+    SemanticPrioritizedFields,
+    SemanticField,
+    SemanticSearch,
 )
 
 from app.config import settings
@@ -29,17 +31,114 @@ def create_or_replace_index() -> None:
     )
 
     fields = [
-        SimpleField(name="id", type=SearchFieldDataType.String, key=True, filterable=True),
+        # =========================
+        # CLAVES / FILTROS
+        # =========================
+        SimpleField(
+            name="id",
+            type=SearchFieldDataType.String,
+            key=True,
+            filterable=True,
+        ),
+        SimpleField(
+            name="user_id",
+            type=SearchFieldDataType.String,
+            filterable=True,
+        ),
+        SimpleField(
+            name="session_id",
+            type=SearchFieldDataType.String,
+            filterable=True,
+        ),
+        SimpleField(
+            name="file_id",
+            type=SearchFieldDataType.String,
+            filterable=True,
+        ),
 
-        SimpleField(name="user_id", type=SearchFieldDataType.String, filterable=True),
-        SimpleField(name="session_id", type=SearchFieldDataType.String, filterable=True),
-        SimpleField(name="file_id", type=SearchFieldDataType.String, filterable=True),
+        # =========================
+        # METADATOS BASE
+        # =========================
+        SearchableField(
+            name="file_name",
+            type=SearchFieldDataType.String,
+            filterable=True,
+            sortable=True,
+        ),
+        SimpleField(
+            name="chunk_id",
+            type=SearchFieldDataType.Int32,
+            filterable=True,
+            sortable=True,
+        ),
+        SimpleField(
+            name="page_number",
+            type=SearchFieldDataType.Int32,
+            filterable=True,
+            sortable=True,
+        ),
 
-        SearchableField(name="file_name", type=SearchFieldDataType.String, filterable=True),
-        SimpleField(name="chunk_id", type=SearchFieldDataType.Int32, filterable=True, sortable=True),
+        # =========================
+        # CONTENIDO
+        # =========================
+        SearchableField(
+            name="content",
+            type=SearchFieldDataType.String,
+        ),
+        SearchableField(
+            name="page_context_preview",
+            type=SearchFieldDataType.String,
+        ),
+        SearchableField(
+            name="ai_reason",
+            type=SearchFieldDataType.String,
+            filterable=True,
+        ),
 
-        SearchableField(name="content", type=SearchFieldDataType.String),
+        # =========================
+        # FLAGS
+        # =========================
+        SimpleField(
+            name="needs_ai",
+            type=SearchFieldDataType.Boolean,
+            filterable=True,
+        ),
+        SimpleField(
+            name="has_visual_description",
+            type=SearchFieldDataType.Boolean,
+            filterable=True,
+        ),
+        SimpleField(
+            name="has_figures",
+            type=SearchFieldDataType.Boolean,
+            filterable=True,
+        ),
+        SimpleField(
+            name="figures_count",
+            type=SearchFieldDataType.Int32,
+            filterable=True,
+            sortable=True,
+        ),
+        SimpleField(
+            name="tables_count",
+            type=SearchFieldDataType.Int32,
+            filterable=True,
+            sortable=True,
+        ),
+        SimpleField(
+            name="has_complex_table",
+            type=SearchFieldDataType.Boolean,
+            filterable=True,
+        ),
+        SimpleField(
+            name="tables_marked_for_ai",
+            type=SearchFieldDataType.Boolean,
+            filterable=True,
+        ),
 
+        # =========================
+        # VECTOR
+        # =========================
         SearchField(
             name="content_vector",
             type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
@@ -48,6 +147,9 @@ def create_or_replace_index() -> None:
             vector_search_profile_name="vs-profile",
         ),
 
+        # =========================
+        # FECHA
+        # =========================
         SimpleField(
             name="created_at",
             type=SearchFieldDataType.DateTimeOffset,
@@ -57,11 +159,39 @@ def create_or_replace_index() -> None:
     ]
 
     vector_search = VectorSearch(
-        algorithms=[HnswAlgorithmConfiguration(name="hnsw-algo")],
-        profiles=[VectorSearchProfile(name="vs-profile", algorithm_configuration_name="hnsw-algo")],
+        algorithms=[
+            HnswAlgorithmConfiguration(name="hnsw-algo")
+        ],
+        profiles=[
+            VectorSearchProfile(
+                name="vs-profile",
+                algorithm_configuration_name="hnsw-algo",
+            )
+        ],
     )
 
-    index = SearchIndex(name=settings.AZURE_SEARCH_INDEX, fields=fields, vector_search=vector_search)
+    semantic_search = SemanticSearch(
+        configurations=[
+            SemanticConfiguration(
+                name="semantic-config-docs",
+                prioritized_fields=SemanticPrioritizedFields(
+                    title_field=SemanticField(field_name="file_name"),
+                    content_fields=[
+                        SemanticField(field_name="content"),
+                        SemanticField(field_name="page_context_preview"),
+                        SemanticField(field_name="ai_reason"),
+                    ],
+                ),
+            )
+        ]
+    )
+
+    index = SearchIndex(
+        name=settings.AZURE_SEARCH_INDEX,
+        fields=fields,
+        vector_search=vector_search,
+        semantic_search=semantic_search,
+    )
 
     # borrar si existe
     try:
@@ -69,7 +199,7 @@ def create_or_replace_index() -> None:
         client.delete_index(settings.AZURE_SEARCH_INDEX)
         print("Índice borrado.")
     except Exception as e:
-        print("No se pudo borrar):", repr(e))
+        print("No se pudo borrar:", repr(e))
 
     # crear
     print("Creando índice...")
