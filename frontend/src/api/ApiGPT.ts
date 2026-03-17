@@ -1,10 +1,13 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosInstance } from "axios";
+import type {
+  ConversationSessionResponse,
+  ConversationDetailResponse,
+  AskResponse,
+  UploadResponse,
+  TokenResponse,
+} from "@/interfaces/interfaces";
 
-const BASE_URL = "http://localhost:8000/api";
-
-// const BASE_URL =
-// "https://capp-resolucion-conflictos-compe.whitesand-8bead175.eastus2.azurecontainerapps.io/api";
+const BASE_URL = `${import.meta.env.VITE_APP_API_URL || "http://localhost:8000"}/api`;
 
 const apiClientMultipart: AxiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -54,15 +57,13 @@ interface VoteRequestData {
   rate: number;
 }
 
-interface ApiResponse<T = any> {
+interface ApiResponse<T> {
   data: T;
 }
 
 const api = {
-  async requestToken(code: string): Promise<any> {
-    const response: ApiResponse = await apiClientCommon.get(
-      `/auth/token?code=${code}`,
-    );
+  async requestToken(code: string): Promise<TokenResponse> {
+    const response = await apiClientCommon.get<TokenResponse>(`/auth/token?code=${code}`);
     return response.data;
   },
 
@@ -70,8 +71,8 @@ const api = {
     window.location.href = `${BASE_URL}/auth/login`;
   },
 
-  async requestAllSession(token: string): Promise<any> {
-    const response: ApiResponse = await apiClientCommon.get("/sessions", {
+  async requestAllSession(token: string): Promise<ConversationSessionResponse> {
+    const response: ApiResponse<ConversationSessionResponse> = await apiClientCommon.get("/sessions", {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -79,9 +80,9 @@ const api = {
     return response.data;
   },
 
-  async requestOneSession(conversation_id: string): Promise<any> {
+  async requestOneSession(conversation_id: string): Promise<ConversationDetailResponse> {
     const token = localStorage.getItem("access_token");
-    const response: ApiResponse = await apiClientCommon.get(
+    const response: ApiResponse<ConversationDetailResponse> = await apiClientCommon.get(
       "/get_one_session",
       {
         params: { conversation_id },
@@ -93,9 +94,9 @@ const api = {
     return response.data;
   },
 
-  async requestDeleteSession(session_id: string): Promise<any> {
+  async requestDeleteSession(session_id: string): Promise<unknown> {
     const token = localStorage.getItem("access_token");
-    const response: ApiResponse = await apiClientCommon.delete(
+    const response: ApiResponse<unknown> = await apiClientCommon.delete(
       `/delete_one_session/${session_id}`,
       {
         headers: {
@@ -112,7 +113,7 @@ const api = {
   }: {
     question: string;
     session_id?: string | null;
-  }): Promise<any> {
+  }): Promise<AskResponse> {
     const requestData: ChatRequestData = { question };
 
     // Solo envía session_id si existe
@@ -121,7 +122,7 @@ const api = {
     }
 
     const token = localStorage.getItem("access_token");
-    const response: ApiResponse = await apiClientCommon.post(
+    const response: ApiResponse<AskResponse> = await apiClientCommon.post(
       "/ask",
       requestData,
       {
@@ -132,7 +133,7 @@ const api = {
     );
     return response.data;
   },
-  async requestAttachment(files: File[], sessionId: string): Promise<any> {
+  async requestAttachment(files: File[], sessionId: string): Promise<UploadResponse> {
     const token = localStorage.getItem("access_token");
     const formData = new FormData();
 
@@ -140,12 +141,11 @@ const api = {
       formData.append("files", file);
     });
 
-    const response: ApiResponse = await apiClientMultipart.post(
+    const response: ApiResponse<UploadResponse> = await apiClientMultipart.post(
       `/upload?session_id=${sessionId}`,
       formData,
       {
         headers: {
-          // "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`,
         },
       },
@@ -157,7 +157,7 @@ const api = {
     msg_id: string,
     vote: number,
     session_id: string,
-  ): Promise<any> {
+  ): Promise<unknown> {
     const requestData: VoteRequestData = {
       id: msg_id,
       thread_id: session_id,
@@ -165,7 +165,7 @@ const api = {
     };
 
     const token = localStorage.getItem("access_token");
-    const response: ApiResponse = await apiClientCommon.post(
+    const response: ApiResponse<unknown> = await apiClientCommon.post(
       "/chat/vote",
       requestData,
       {

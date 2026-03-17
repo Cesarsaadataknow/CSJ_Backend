@@ -210,7 +210,7 @@ export const ChatInput = ({
             event.preventDefault();
 
             if (isLoading) {
-              toast.error("Please wait for the model to finish its response!");
+              toast.error("Por favor espera la respuesta del modelo");
             } else {
               setShowSuggestions(false);
               onSubmit();

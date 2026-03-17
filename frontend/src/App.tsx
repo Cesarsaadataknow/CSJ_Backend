@@ -19,7 +19,9 @@ function App() {
 
         if (data?.access_token) {
           localStorage.setItem("access_token", data.access_token);
-          localStorage.setItem("permissions", data.permissions);
+          if (data.permissions != null) {
+            localStorage.setItem("permissions", data.permissions);
+          }
 
           window.history.replaceState({}, document.title, "/");
           setLoading(false);

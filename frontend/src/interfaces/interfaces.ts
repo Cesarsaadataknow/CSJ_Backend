@@ -48,8 +48,37 @@ export interface ConversationDetailResponse {
   messages: ConversationMessage[];
 }
 
+/**
+ * Respuesta del endpoint POST /api/ask.
+ * Los tipos pueden ajustarse cuando el backend esté documentado.
+ */
+export interface AskResponse {
+  answer: string | Record<string, unknown>;
+  doc_id?: string;
+  session_id?: string;
+}
+
+/**
+ * Respuesta del endpoint POST /api/upload.
+ * Los tipos pueden ajustarse cuando el backend esté documentado.
+ */
+export interface UploadResponse {
+  reply_text: string | Record<string, unknown>;
+  doc_id?: string;
+  session_id?: string;
+}
+
 export interface User {
   name: string;
   email: string;
   roles: ["Tester"];
+}
+
+/**
+ * Respuesta del endpoint GET /api/auth/token.
+ * Ajustar cuando el backend esté documentado.
+ */
+export interface TokenResponse {
+  access_token?: string;
+  permissions?: string;
 }

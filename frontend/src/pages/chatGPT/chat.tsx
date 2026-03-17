@@ -25,8 +25,12 @@ import {
 import ListFile from "@/components/custom/ListFile";
 import { Button } from "@/components/ui/button";
 import UseLogout from "@/hooks/useLogout";
+import {
+  ExpedienteFilter,
+  ExpedienteFilterValues,
+} from "@/components/custom/ExpedienteFilter";
  
-interface Message {
+export interface Message {
   id: string;
   role: "user" | "assistant";
   answer: string;
@@ -54,19 +58,22 @@ export function Chat({
     useScrollToBottom<HTMLDivElement>();
   const [question, setQuestion] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isProcessingFiles, setIsProcessingFiles] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [idChat, setIdChat] = useState<string>(""); // puede ser temp-xxx o realSessionId
   const [instructions, setInstructions] = useState("");
   const [isLoadingChat, setIsLoadingChat] = useState<boolean>(false);
+  const [expedienteFilter, setExpedienteFilter] =
+    useState<ExpedienteFilterValues>({ expediente: "", carpeta: "" });
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const isStop = useRef<boolean>(false);
   const { logout, user } = UseLogout();
  
   const pushMessage = (msg: Message, idChatValue: string | null = null) => {
-    setAllMsg((prev: any) => ({
+    setAllMsg((prev) => ({
       ...prev,
       [idChatValue || idChat]: [...(prev[idChatValue || idChat] || []), msg],
     }));
@@ -83,8 +90,8 @@ export function Chat({
     handleEdit(messageId, allMsgCopy);
   };
  
-  const formatText = (answer: any) => {
-    if (typeof answer == "object") {
+  const formatText = (answer: string | Record<string, unknown>) => {
+    if (typeof answer === "object") {
       return Object.values(answer).filter(Boolean).join("\n\n\n\n");
     }
     return answer;
@@ -166,7 +173,8 @@ export function Chat({
     }
  
     setIsLoading(true);
- 
+    setIsProcessingFiles(!!files?.length);
+
     try {
       let assistantText = "";
       let linkFile = "";
@@ -176,15 +184,19 @@ export function Chat({
         const formData = new FormData();
         formData.append("session_id", idChatLocal);
  
-        files.forEach((fileObj: any) => {
+        files.forEach((fileObj) => {
           formData.append("files", fileObj);
         });
  
+        // TODO: Enviar expedienteFilter al backend cuando soporte filtro
+        // api.requestAttachment(files, idChatLocal, expedienteFilter)
         const res = await api.requestAttachment(files, idChatLocal);
         assistantText = formatText(res.reply_text);
         linkFile = res.doc_id || "";
         realSessionIdFromBackend = res.session_id || null;
       } else {
+        // TODO: Enviar expedienteFilter al backend cuando soporte filtro
+        // api.requestChat({ question: text, session_id, ...expedienteFilter })
         const res = await api.requestChat({
           question: text,
           session_id: isTempChat ? null : idChatLocal,
@@ -261,6 +273,7 @@ export function Chat({
       );
     } finally {
       setIsLoading(false);
+      setIsProcessingFiles(false);
       setFiles([]);
     }
   };
@@ -385,7 +398,7 @@ export function Chat({
     setIsLoading(false);
     pushMessage({
       id: uuidv4(),
-      answer: "El mesaje fue cancelado por el usuario",
+      answer: "El mensaje fue cancelado por el usuario",
       role: "assistant",
       files: null,
       rate: null,
@@ -434,7 +447,7 @@ export function Chat({
           {newChat && (
             <div className="flex flex-1 justify-center items-center p-2">
               <h1 className="text-3xl font-bold break-all text-center">
-                ¡Listo, cuando tú lo estés.!
+                ¡Listo, cuando tú lo estés!
               </h1>
             </div>
           )}
@@ -545,9 +558,7 @@ export function Chat({
                             const token = localStorage.getItem("access_token");
                             if (!token) return;
  
-                            const url = `http://localhost:8000/api/download/doc/${msg.linkFile}`;
- 
-                            //const url = `https://capp-resolucion-conflictos-compe.whitesand-8bead175.eastus2.azurecontainerapps.io/api/download/doc/$%7Bmsg.linkFile%7D`;
+                            const url = `${import.meta.env.VITE_APP_API_URL || "http://localhost:8000"}/api/download/doc/${msg.linkFile}`;
  
                             const resp = await fetch(url, {
                               headers: { Authorization: `Bearer ${token}` },
@@ -613,7 +624,9 @@ export function Chat({
             ))}
  
           {isLoading && (
-            <div className="text-center text-gray-500 italic">Pensando...</div>
+            <div className="text-center text-gray-500 italic">
+              {isProcessingFiles ? "Procesando archivos..." : "Pensando..."}
+            </div>
           )}
           <div ref={endRef} />
         </div>
@@ -624,6 +637,13 @@ export function Chat({
         />
       </div>
  
+      <div className="max-w-4xl w-full px-2">
+        <ExpedienteFilter
+          values={expedienteFilter}
+          onChange={setExpedienteFilter}
+        />
+      </div>
+
       <InputGPT
         question={question}
         setQuestion={setQuestion}

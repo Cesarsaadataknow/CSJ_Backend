@@ -36,15 +36,12 @@ export default function Login() {
       <div className="w-full max-w-md text-center flex flex-col items-center">
         {/* Logo con halo dorado */}
         <div className="mb-10 relative flex justify-center">
-          {/* Halo */}
           <div className="absolute -inset-4 rounded-full bg-[#c9a24d]/20 blur-xl"></div>
-
-          {/* Logo */}
           <div className="relative">
             <img
-              src="/logo.png"
-              alt="Logo Corte Suprema de Justicia"
-              className="h-[120px] object-contain"
+              src="/layout_set_logo_Consejo_Superior_Judicatura.png"
+              alt="Logo Consejo Superior de la Judicatura"
+              className="h-[180px] object-contain"
             />
           </div>
         </div>

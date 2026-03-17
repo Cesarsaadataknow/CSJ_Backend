@@ -12,7 +12,7 @@ import { Button } from "../ui/button";
 import { toast } from "sonner";
 import { cx } from "classix";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUpIcon, Paperclip } from "lucide-react";
+import { ArrowUpIcon } from "lucide-react";
 import ListFile from "../custom/ListFile";
 import { StopIcon } from "../custom/icons";
 
@@ -47,7 +47,7 @@ export const InputGPT = ({
   handleStop,
 }: ChatInputProps) => {
   const [isDraggingGlobal, setIsDraggingGlobal] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // const fileInputRef = useRef<HTMLInputElement>(null); // deshabilitado con el botón Archivos
   const boxRef = useRef<HTMLDivElement>(null);
 
   // 🟢 Detecta drag & drop global, pero muestra overlay solo en el box
@@ -221,12 +221,15 @@ const isAllowedFile = (file: File) => {
         {files.length > 0 && (
           <div className="flex flex-wrap gap-2 p-2 border-b border-zinc-300 bg-zinc-50">
             <ListFile files={files} onRemove={handleRemoveFile} />
+            <span className="w-full text-xs text-muted-foreground">
+              {files.length}/{MAX_FILES} archivos &middot; M&aacute;x. 100 MB por archivo
+            </span>
           </div>
         )}
 
         {/* Textarea */}
         <Textarea
-          placeholder="Escribe una consulta o pega un archivo..."
+          placeholder="Escribe una consulta o adjunta un archivo..."
           className={cx(
             "w-full min-h-[48px] max-h-[60dvh] resize-none text-base",
             "bg-muted border-0 focus:ring-0 focus:outline-none",
@@ -248,6 +251,7 @@ const isAllowedFile = (file: File) => {
         {/* Barra de acciones */}
         <div className="w-full flex justify-between px-[12px] py-[8px]">
           <div className="flex flex-row gap-2 items-center">
+            {/* Botón Archivos retirado por el momento
             <Button
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
@@ -255,6 +259,9 @@ const isAllowedFile = (file: File) => {
               <Paperclip size={16} />
               <span className="hidden lg:block">Archivos</span>
             </Button>
+            <span className="text-xs text-muted-foreground hidden lg:inline">
+              PDF, Word &middot; M&aacute;x. {MAX_FILES} archivos, 100 MB c/u
+            </span>
             <input
               ref={fileInputRef}
               type="file"
@@ -264,9 +271,10 @@ const isAllowedFile = (file: File) => {
               onChange={(e) => {
                 const newFiles = Array.from(e.target.files || []);
                 if (newFiles.length) addFiles(newFiles);
-                e.currentTarget.value = ""; 
+                e.currentTarget.value = "";
               }}
             />
+            */}
 
             {/* <Button
               variant="outline"
@@ -283,15 +291,23 @@ const isAllowedFile = (file: File) => {
           </div>
           <div className="flex flex-row gap-2">
             {/* <DropdownModel setValue={setModelSelect} value={modelSelect} /> */}
-            {!question.length ||
-              (!isLoading && (
+            {isLoading ? (
+              <Button
+                className="cursor-pointer rounded-full p-1.5 h-fit bottom-2 right-2 border z-50"
+                onClick={handleStop}
+              >
+                <StopIcon />
+              </Button>
+            ) : (
+              (question.trim().length > 0 || files.length > 0) && (
                 <Button
                   className="cursor-pointer rounded-full p-1.5 h-fit bottom-2 right-2 border z-50"
-                  onClick={isLoading ? handleStop : handleSend}
+                  onClick={handleSend}
                 >
-                  {isLoading ? <StopIcon /> : <ArrowUpIcon size={14} />}
+                  <ArrowUpIcon size={14} />
                 </Button>
-              ))}
+              )
+            )}
           </div>
         </div>
 

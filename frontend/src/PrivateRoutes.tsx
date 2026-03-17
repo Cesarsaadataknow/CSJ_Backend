@@ -4,6 +4,7 @@ import {
   ChatInterface,
   ConversationSessionResponse,
 } from "./interfaces/interfaces";
+import type { Message } from "./pages/chatGPT/chat";
 import { useEffect, useState } from "react";
 import { MainLayout } from "./components/layout/MainLayout";
 import api from "./api/ApiGPT";
@@ -11,7 +12,7 @@ import UseLogout from "./hooks/useLogout";
 
 export default function PrivateRoutes() {
   const [chats, setChats] = useState<ChatInterface[]>([]);
-  const [allMessages, setAllMessages] = useState({});
+  const [allMessages, setAllMessages] = useState<Record<string, Message[]>>({});
   const { logout, user } = UseLogout();
   const [isLoadingChats, setIsLoadingChats] = useState(false);
 
@@ -33,9 +34,10 @@ export default function PrivateRoutes() {
           })
         );
       })
-      .catch((err) => {
+      .catch((err: { status?: string; response?: { status?: number } }) => {
         console.log(err);
-        logout(err?.status || "");
+        const status = err?.response?.status ?? err?.status;
+        logout(typeof status === "number" ? String(status) : status ?? "");
       })
       .finally(() => setIsLoadingChats(false));
   }
@@ -47,11 +49,19 @@ export default function PrivateRoutes() {
     setChats((prev) => prev.filter((chat) => chat.chatId !== chatId));
 
     // 2. Eliminar los mensajes asociados en allMessages
-    setAllMessages((prev: any) => {
-      const newObj = { ...prev };
-      delete newObj[chatId];
-      return newObj;
+    setAllMessages((prev) => {
+      const { [chatId]: _removed, ...rest } = prev;
+      return rest;
     });
+  }
+
+  function renameChatInState(chatId: string, newTitle: string) {
+    if (!chatId || !newTitle.trim()) return;
+    setChats((prev) =>
+      prev.map((chat) =>
+        chat.chatId === chatId ? { ...chat, title: newTitle.trim() } : chat
+      )
+    );
   }
 
   useEffect(() => {
@@ -61,15 +71,17 @@ export default function PrivateRoutes() {
   return (
     <Routes>
       {/* Rutas dentro del layout */}
-      <Route
-        element={
-          <MainLayout
-            chats={chats}
-            removeChatFromState={removeChatFromState}
-            isLoading={isLoadingChats}
-          />
-        }
-      >
+        <Route
+          element={
+            <MainLayout
+              chats={chats}
+              removeChatFromState={removeChatFromState}
+              renameChatInState={renameChatInState}
+              isLoading={isLoadingChats}
+              onRefreshChats={getAllChats}
+            />
+          }
+        >
         <Route
           path="/"
           element={
