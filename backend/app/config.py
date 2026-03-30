@@ -4,7 +4,17 @@ import os
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+_backend_env = BASE_DIR / ".env"
+_repo_root_env = BASE_DIR.parent / ".env"
+
+# Prefer backend/.env, but also support repo-root .env for convenience
+if _backend_env.exists():
+    load_dotenv(_backend_env)
+elif _repo_root_env.exists():
+    load_dotenv(_repo_root_env)
+else:
+    # Keep behavior explicit: env vars must come from OS env
+    load_dotenv()
 
 
 

@@ -10,11 +10,19 @@ import { Input } from "@/components/ui/input";
 
 const LOGO_FLIP_INTERVAL_MS = 4500;
 const LOGOS = [
-  { src: "/layout_set_logo_Consejo_Superior_Judicatura.png", alt: "Logo Consejo Superior de la Judicatura" },
-  { src: "/LogoJusticiaYPaz.png", alt: "Logo Justicia y Paz" },
+  {
+    src: "/logos/seccional/Logos Seccionales_DS Barranquilla.svg",
+    isotipoSrc: "/favicon-csj-seccional-isotipo.png",
+    alt: "Logo Consejo Superior de la Judicatura",
+  },
+  {
+    src: "/LogoJusticiaYPaz.png",
+    isotipoSrc: "/isotipo-justicia-y-paz.png",
+    alt: "Logo Justicia y Paz",
+  },
 ];
 
-function LogoFlipCard({ onLinkClick }: { isOpen: boolean; onLinkClick: () => void }) {
+function LogoFlipCard({ onLinkClick, compact = false }: { onLinkClick: () => void; compact?: boolean }) {
   const [flipped, setFlipped] = useState(false);
 
   useEffect(() => {
@@ -25,7 +33,9 @@ function LogoFlipCard({ onLinkClick }: { isOpen: boolean; onLinkClick: () => voi
   return (
     <Link
       to="/"
-      className="flex h-48 items-center justify-center shrink-0 overflow-hidden px-2 pt-0 pb-2 mb-1 -mt-8 transition-all duration-300 [perspective:1000px]"
+      className={`flex items-center justify-center shrink-0 overflow-hidden transition-all duration-300 [perspective:1000px] ${
+        compact ? "h-20 px-1 pt-1 pb-1 mb-1" : "h-48 px-2 pt-0 pb-2 mb-1 -mt-8"
+      }`}
       onClick={onLinkClick}
     >
       <div
@@ -41,9 +51,11 @@ function LogoFlipCard({ onLinkClick }: { isOpen: boolean; onLinkClick: () => voi
             }}
           >
             <img
-              src={logo.src}
+              src={compact ? logo.isotipoSrc : logo.src}
               alt={logo.alt}
-              className={`h-full w-full object-contain object-center ${i === 0 ? "max-h-24" : "max-h-44"}`}
+              className={`h-full w-full object-contain object-center ${
+                compact ? "max-h-12" : i === 0 ? "max-h-24" : "max-h-[7.5rem]"
+              }`}
             />
           </div>
         ))}
@@ -214,12 +226,13 @@ export function Sidebar({
       }
     `}
       >
-        {/* Logos solo visibles con sidebar expandido */}
-        {isOpen && (
+        {/* Logos con efecto flip en sidebar expandido/colapsado */}
+        {isOpen ? (
           <LogoFlipCard
-            isOpen={isOpen}
             onLinkClick={() => window.innerWidth < 1024 && changeIsOpenNav()}
           />
+        ) : (
+          <LogoFlipCard compact onLinkClick={() => {}} />
         )}
         {/* Botón de toggle: ChevronRight para expandir, ChevronLeft para colapsar */}
         <button

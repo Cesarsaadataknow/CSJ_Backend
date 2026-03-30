@@ -39,7 +39,7 @@ export default function Login() {
           <div className="absolute -inset-4 rounded-full bg-[#c9a24d]/20 blur-xl"></div>
           <div className="relative">
             <img
-              src="/layout_set_logo_Consejo_Superior_Judicatura.png"
+              src="/logos/seccional/Logos Seccionales_DS Barranquilla.svg"
               alt="Logo Consejo Superior de la Judicatura"
               className="h-[180px] object-contain"
             />

@@ -9,8 +9,8 @@ export default {
   ],
   theme: {
     fontFamily: {
-      sans: ['geist'],
-      mono: ['geist-mono'],
+      sans: ['Montserrat', 'geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      mono: ['geist-mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', '"Liberation Mono"', '"Courier New"', 'monospace'],
     },
     extend: {
       borderRadius: {

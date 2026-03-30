@@ -73,7 +73,7 @@ async def auth_token(request: Request):
         return JSONResponse({"error": token_result.get("error_description", "No token")}, status_code=400)
 
     access_token = token_result["access_token"]
-    logging.info(f"Access Token: {access_token}")
+    logging.info("Access token generated successfully")
     user = await auth_manager.decode_user(access_token)
     return {
         "access_token": access_token,

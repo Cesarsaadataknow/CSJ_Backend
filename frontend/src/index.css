@@ -45,8 +45,29 @@
 
 @layer base {
   @font-face {
+    font-family: "Montserrat";
+    src:
+      url("/fonts/principal/Montserrat-VariableFont_wght.woff2") format("woff2"),
+      url("/fonts/principal/Montserrat-VariableFont_wght.ttf") format("truetype");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: "Montserrat";
+    src:
+      url("/fonts/principal/Montserrat-Italic-VariableFont_wght.woff2") format("woff2"),
+      url("/fonts/principal/Montserrat-Italic-VariableFont_wght.ttf") format("truetype");
+    font-weight: 100 900;
+    font-style: italic;
+    font-display: swap;
+  }
+
+  @font-face {
     font-family: "geist";
     src: url(./assets/fonts/geist.woff2) format("woff2");
+    font-display: swap;
   }
 
   * {
@@ -54,7 +75,7 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
     overflow: hidden !important;
   }
 }
